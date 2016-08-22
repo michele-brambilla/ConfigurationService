@@ -21,7 +21,7 @@ set (CMAKE_CXX_FLAGS "-std=c++11 -pthread ${CMAKE_CXX_FLAGS}")
 #)
 
 ## add the binary tree to the search path for include files
-#include_directories("${PROJECT_SOURCE_DIR}/cJSON"
+include_directories("${PROJECT_SOURCE_DIR}/rapidjson/include")
 #  "${PROJECT_SOURCE_DIR}/rapidjson/include"
 #  "${PROJECT_SOURCE_DIR}"
 #  "${RDKAFKA_DIR}/include"
@@ -43,8 +43,10 @@ set (CMAKE_CXX_FLAGS "-std=c++11 -pthread ${CMAKE_CXX_FLAGS}")
 #target_link_libraries (AMORreceiver zmq rdkafka rdkafka++ NeXus sodium cjson hdf5)
 #add_dependencies(AMORgenerator extern_lib)
 #add_dependencies(AMORreceiver extern_lib)
+include( CTest )
 
 include_directories(${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR}/rapidjson)
 
 #add_library(prova SHARED configuration.cc)
 

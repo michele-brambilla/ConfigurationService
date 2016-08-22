@@ -13,4 +13,4 @@ target_link_libraries( configuration_test
 
 
 enable_testing()
-add_test(UnitTest configuration_test)
+add_test(NAME UnitTest COMMAND configuration_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})

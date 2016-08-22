@@ -2,44 +2,47 @@
 
 #include <configuration.hpp>
 
+const char* instrument_file = "../sample/example_instrument.js";
+
+
 typedef configuration::MockManager DM;
 typedef configuration::MockManager CM;
 
 using namespace configuration;
 
-TEST (UploadConfig, ValidString) {
-  int d,c;
-  ConfigurationService<DM,CM> cs(d,c);
-
-  EXPECT_TRUE(cs.UploadConfig(""));
-}
-
 TEST (UploadConfig, ValidFile) {
-  int d,c;
-  ConfigurationService<DM,CM> cs(d,c);
+  std::ifstream in;
   try {
-    std::ifstream in("example_config.js");
+    in.open(instrument_file);
     in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
   }
   catch (std::ifstream::failure e) {
-    std::cout << "Exception opening/reading file";
+    std::cout << "Exception opening/reading file: " << e.what() << std::endl;
   }
   
-  EXPECT_TRUE(cs.UploadConfig(""));
-}
-
-
-TEST (UploadConfig, RecordPresent) {
   int d,c;
   ConfigurationService<DM,CM> cs(d,c);
-  EXPECT_TRUE(cs.UploadConfig(""));
+  EXPECT_TRUE(cs.UploadConfig(in));
 }
 
-TEST (UploadConfig, RecordNotPresent) {
-  int d,c;
-  ConfigurationService<DM,CM> cs(d,c);
-  EXPECT_TRUE(cs.UploadConfig(""));
-}
+// TEST (UploadConfig, ValidString) {
+//   int d,c;
+//   ConfigurationService<DM,CM> cs(d,c);
+
+//   EXPECT_TRUE(cs.UploadConfig(""));
+// }
+
+// TEST (UploadConfig, RecordPresent) {
+//   int d,c;
+//   ConfigurationService<DM,CM> cs(d,c);
+//   EXPECT_TRUE(cs.UploadConfig(""));
+// }
+
+// TEST (UploadConfig, RecordNotPresent) {
+//   int d,c;
+//   ConfigurationService<DM,CM> cs(d,c);
+//   EXPECT_TRUE(cs.UploadConfig(""));
+// }
 
 
 

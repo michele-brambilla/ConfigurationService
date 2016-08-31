@@ -10,22 +10,61 @@
 
 namespace configuration {
 
-struct MockManager {
-typedef int handler;
-};
+  struct MockManager {
+    typedef int handler;
+    MockManager() { };
+
+    std::string AddConfig(std::string config) {
+      return std::string("");
+    }
+
+    bool NotifyNewConfig(std::string config) {
+      return false;
+    }
+    
+  };
+
+
+  struct MockDataManager : MockManager {
+    MockDataManager() { };
+    std::string AddConfig(std::string config) { return std::string(""); }
+    
+  private:
+
+    bool ConfigAlreadyPresent() const { return true; }
+  };
 
   
+  struct MockCommunicationManager : MockManager {
+    MockCommunicationManager() { };
+    bool NotifyNewConfig(std::string config) { return false; }
+    bool GetConfig(const std::string config_name,
+                   std::string& config) {
+      return false;
+    }
+    
+  private:
+    bool NotifyFailure() const { return true; }
+  };
+
+  
+  /////////////////////////////////////
+  /// struct ConfigurationService
   template<typename DataManager, typename CommunicationManager>
   struct ConfigurationService {
 
-    ConfigurationService(typename DataManager::handler& _dh,
-                         typename CommunicationManager::handler& _ch) :
+    ConfigurationService(DataManager& _dh,
+                         CommunicationManager& _ch) :
       dh(_dh), ch(_ch) { }
 
     bool UploadConfig(std::string& config) {
       if( !is_valid_config(config) ) return false;
 
-      return false
+      std::string config_name = dh.AddConfig(config);
+      if ( !config_name.empty() ) return false;
+      if ( !ch.NotifyNewConfig(config_name) ) return false;
+      
+      return false;
     };
 
     
@@ -40,12 +79,13 @@ typedef int handler;
       return UploadConfig(config);
     };
     
-    std::ostream& DumpConfig(std::istream& os) {
+    std::ostream& DumpConfig(std::ostream& os = std::cout) {
       static std::ostream out(nullptr);
-      return out;
+      return os;
     }
 
-    bool SubscribeToKey(const std::string& key) { return false; };
+    bool SubscribeToKey(const std::string& configmore,
+                        const std::string& key) { return false; };
 
     std::string const GetKeyValue(const std::string& key) {
       return std::string("");
@@ -56,8 +96,8 @@ typedef int handler;
     }
 
   private:
-    typename DataManager::handler& dh;
-    typename CommunicationManager::handler& ch;
+    DataManager& dh;
+    CommunicationManager& ch;
     rapidjson::Document d;
     
     bool is_valid_config(std::string config) { // tested

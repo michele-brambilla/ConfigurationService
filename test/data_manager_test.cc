@@ -123,17 +123,15 @@ TEST (DataManager, DeleteSet) {
   // test delete success
   EXPECT_TRUE( dm.Delete("instrument1:sources") );
   // test missing key
-  dm.Dump();
   EXPECT_FALSE( dm.Query("instrument1:sources").size() > 0 );
   // test other keys not affected
   for (auto& key : dm.Query("instrument1") ) {
-    //    std::cout << key << std::endl;
     EXPECT_TRUE( dm.Query("instrument1:"+key).size() > 0 );
   }
   
-  // // test success in deleting non-existing key
-  // EXPECT_TRUE( dm.Delete("instrument1:user") );
-  //  dm.Dump();
+  // test success in deleting non-existing key
+  EXPECT_TRUE( dm.Delete("instrument1:sources") );
+  dm.Notify();
 }
 
 

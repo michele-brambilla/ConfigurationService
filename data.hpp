@@ -93,7 +93,7 @@ namespace configuration {
           throw std::runtime_error("Set update not implemented");
         }
         else {
-          container[key][0] = value;
+          UpdateHashValue(key,value);
         }
         updates.push_back(std::pair<std::string,std::string>(key,"u"));
         return true;
@@ -111,20 +111,17 @@ namespace configuration {
           std::size_t found = key.find_last_of(":");
 
           // // removes item from set
-          // if ( !RemoveFromParent(key.substr(0,found),key.substr(found+1)) )
-          //   return false;
+          if ( !RemoveFromParent(key.substr(0,found),key.substr(found+1)) )
+            return false;
           // remove key and children
           int n=RemoveChildren(key);
-          if( n <= 0 )
-            return false;
-
+          if( n <= 0 ) return false;
+          
           deleted_keys+=n;
-          //          throw std::runtime_error("Set delete not implemented");
           return deleted_keys > 0;
         }
         else {
           updates.push_back(std::pair<std::string,std::string>(key,"d"));
-          //          return container.erase(key) == 1;
           return RemoveKey(key)==1;
         }
         return false;
@@ -174,26 +171,12 @@ namespace configuration {
       }
 
       bool RemoveFromParent(const std::string& key,const std::string& value) {
-        // auto& l = container.find(key)->second;
-        // for( auto v = l.begin(); v != l.end(); ++v) {
-        //   std::cout << (*v) << "\t";
-        //   if ( (*v) == key ) {
-        //     l.erase(v);
-        //     return true;
-        //   }
-        // }
-        // std::cout << "\n";
-        // return false;
-        // std::cout << "\n";
-        // // if parent key is not found return false
-        // MockContainer::value_type::const_iterator it=std::find(l.begin(),l.end(),value);
-        // std::cout << *it << std::endl;
-        // if( it<l.end() ) {
-        //   container[key].erase(it->first);
-        //   updates.push_back(std::pair<std::string,std::string>(key,"u"));
-        //   std::cout << "rimosso!" << std::endl;
-        //   return true;
-        // }
+        MockContainer::value_type::iterator it = std::find(container[key].begin(),container[key].end(),value);
+        if( it != container[key].end()) {
+          updates.push_back(std::pair<std::string,std::string>(key,"u"));
+          container[key].erase(it);
+          return true;
+        }
         return false;
       }
       int RemoveKey(const std::string& key) {
@@ -206,7 +189,6 @@ namespace configuration {
         MockContainer::iterator last=container.find(key);
         while(last->first.substr(0, key.size()) == key) {
           updates.push_back(std::pair<std::string,std::string>(last->first,"d"));
-          //          std::cout << last->first << std::endl;
           ++last;
           ++nelem;
         }
@@ -216,6 +198,11 @@ namespace configuration {
 
       MockContainer::value_type ReturnValue(const std::string& key) const {
         return container.find(key)->second;
+      }
+
+      bool UpdateHashValue(const std::string& key,const std::string& value) {
+        container[key][0]=value;
+        return true;
       }
       
       void scan(rapidjson::Value::MemberIterator first,

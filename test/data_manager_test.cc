@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <data.hpp>
+#include <communication.hpp>
 
 
 const char* instrument_file = "../sample/example_instrument.js";
@@ -31,6 +32,8 @@ std::string read_config_file(const char* s) {
 
 
 typedef configuration::data::MockDataManager DM;
+typedef configuration::communicator::FileCommunicator CM;
+
 
 using namespace configuration::data;
 
@@ -41,18 +44,16 @@ TEST (DataManager, ValidString) {
 TEST (DataManager, AddConfig) {
   DM dm;
   EXPECT_TRUE( dm.IsValidString( read_config_file(instrument_file) ) );
-  dm.AddConfig( read_config_file(instrument_file) );
+  EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
 }
 
 TEST (DataManager, AddNewConfig) {
   DM dm;
-  dm.AddConfig( read_config_file(instrument_file) );
-  dm.Dump();
-  // add new config on top of existing one
-  dm.AddConfig( read_config_file("../sample/example_instrument.js") );
-
-  //  EXPECT_TRUE( dm.IsValidString( read_config_file("../sample/example_instrument2.js") ) );
+  EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
   //  dm.Dump();
+  // add new config on top of existing one
+  EXPECT_FALSE( dm.AddConfig( read_config_file("../sample/example_instrument.js") ) );
+  EXPECT_TRUE( dm.AddConfig( read_config_file("../sample/example_instrument2.js") ) );
 }
 
 
@@ -148,26 +149,27 @@ TEST (DataManager, DeleteSet) {
   for (auto& key : dm.Query("instrument1") ) {
     EXPECT_TRUE( dm.Query("instrument1:"+key).size() > 0 );
   }
-  
   // test success in deleting non-existing key
   EXPECT_TRUE( dm.Delete("instrument1:sources") );
-  //  dm.Notify();
+  CM c;
+  EXPECT_TRUE( dm.Notify<CM>(c) );
 }
 
 
-// TEST (DataManager, Updates) {
-//   DM dm;
-//   // test updates initially void
-//   EXPECT_TRUE( dm.UpdatesList().size() == 0 );
-//   dm.AddConfig( read_config_file(instrument_file) );
-//   EXPECT_TRUE( dm.Update("instrument1:sources:motor4:type","new-ca-motor") );
-//   // test updates existence
-//   EXPECT_TRUE( dm.UpdatesList().size() > 0 );
-//   // test delete success
-//   EXPECT_TRUE( dm.Notify() );
-//   // test updates empty after notification
-//   EXPECT_FALSE( dm.UpdatesList().size() > 0 );
-// }
+TEST (DataManager, Updates) {
+  DM dm;
+  // test updates initially void
+  EXPECT_TRUE( dm.UpdatesList().size() == 0 );
+  dm.AddConfig( read_config_file(instrument_file) );
+  EXPECT_TRUE( dm.Update("instrument1:sources:motor4:type","new-ca-motor") );
+  // test updates existence
+  EXPECT_TRUE( dm.UpdatesList().size() > 0 );
+  // test delete success
+  CM c;
+  EXPECT_TRUE( dm.Notify<CM>(c) );
+  // test updates empty after notification
+  EXPECT_FALSE( dm.UpdatesList().size() > 0 );
+}
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

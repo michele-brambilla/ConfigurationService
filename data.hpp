@@ -10,7 +10,7 @@
 #include <stdexcept>
 
 namespace configuration {
-
+    
   namespace data {
     // static const char* kTypeNames[] = 
     //   { "Null", "False", "True", "Object", "Array", "String", "Number" };
@@ -55,19 +55,18 @@ namespace configuration {
     struct DataManager {
       DataManager() { };
     };
-    
+
     struct MockDataManager : DataManager {
       typedef  MockDataManager self_t;
 
       MockDataManager() { };
       void Dump(std::ostream& os=std::cout) { os << container << std::endl; }
       
-      self_t& AddConfig(std::string conf) {
+      bool AddConfig(std::string conf) {
         rapidjson::Document t;
         t.Parse(conf.c_str());
         if( t.HasParseError() ) { throw std::runtime_error("Error: invalid configuration"); }
-        scan(t.MemberBegin(),t.MemberEnd());
-        return *this;
+        return scan(t.MemberBegin(),t.MemberEnd());
       }
       
       std::vector<std::string> Query(const std::string& key) const {
@@ -116,15 +115,10 @@ namespace configuration {
         }
         return false;
       }
-      
-      bool Notify() {
-        std::cout << "Configuration changes:\n";
-        while (!updates.empty()) {
-          std::cout << "\t("     << updates.back().second
-                    << ")\t" << updates.back().first
-                    << std::endl;
-          updates.pop_back();
-        }
+
+      template<typename CommunicatorManager>
+      bool Notify(CommunicatorManager& comm) {
+        comm.Send(updates);
         return updates.empty();
       };
        std::vector<std::pair<std::string,std::string> > const& UpdatesList()  {
@@ -139,10 +133,11 @@ namespace configuration {
       
       MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
-
+      
       bool KeyExists(const std::string& key) const {
         return (container.find(key) != container.end());
       }
+      
       bool IsSet(const std::string& key) { return container[key].size() > 1; }
       
       void NotifyKeyNew(const std::string& key) { }; // new key is added to the configuration
@@ -216,18 +211,18 @@ namespace configuration {
         return true;
       }
 
+
       bool scan(rapidjson::Value::MemberIterator first,
                 rapidjson::Value::MemberIterator last,
                 std::string prefix="") {
-        //        std::cout << prefix << std::endl;
 
-        // for( auto& it = first; it != last; ++it) {
-        //   std::cout << std::string(it->name.GetString()) << std::endl;
-        //   if( KeyExists(it->name.GetString()) ) {
-        //     throw std::runtime_error("configuration exists");
-        //   }
-        // }
-        //        return false;
+        bool scan_ok = true;
+        for( auto it = first; it != last; ++it) {
+          if( KeyExists(it->name.GetString()) ) {
+            std::cerr << "Error: configuration " << it->name.GetString() << " exists, nothing to do"<< std::endl;
+            return false;
+          }
+        }
         
         std::vector<std::string> values;
         std::string separator="";
@@ -237,9 +232,9 @@ namespace configuration {
         for( auto& it = first; it != last; ++it) {
           values.push_back(std::string(it->name.GetString()));
           if(it->value.IsObject())  // if value is object create a  "set"
-            scan( it->value.MemberBegin(),
-                  it->value.MemberEnd(),
-                  prefix+separator+it->name.GetString());
+            scan_ok &= scan( it->value.MemberBegin(),
+                             it->value.MemberEnd(),
+                             prefix+separator+it->name.GetString());
           else {
             if(it->value.IsString()) { // if value is a string create a "hash-value"
               std::vector<std::string> tmp;
@@ -256,13 +251,16 @@ namespace configuration {
               throw std::runtime_error("Error parsing configuration: value is neither an object nor a string");
           }
         }
+
         if (prefix=="") {
           AddToKeyList("main",values);
+          for( auto v : values )
+            std::cout << v << std::endl;
         }
         else {
           AddToKeyList(prefix,values);
         }
-        return true;
+        return scan_ok;
       }
     };
     

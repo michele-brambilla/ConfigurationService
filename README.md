@@ -9,7 +9,16 @@ Actions available:
     * GetKeyValue
     * UpdateKeyValue
     
-    
+
+REDIS
+-----
+
+Requires hiredis, libev for redox 
+```
+yum install hiredis libev
+git clone git@github.com:hmartiro/redox.git redox
+```
+
 Testing
 ------
 

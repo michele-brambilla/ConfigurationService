@@ -14,7 +14,8 @@ target_link_libraries( configuration_test
 target_link_libraries( data_test
 #  ${CMAKE_CURRENT_SOURCE_DIR}/../build/libprova.dylib
   ${GTEST_LIB}libgtest.a
-  ${GTEST_LIB}libgtest_main.a)
+  ${GTEST_LIB}libgtest_main.a
+  redox)
 
 
 enable_testing()

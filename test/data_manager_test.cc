@@ -29,26 +29,27 @@ std::string read_config_file(const char* s) {
   return config;
 }
 
-
-
-typedef configuration::data::MockDataManager DM;
-typedef configuration::communicator::FileCommunicator CM;
+static const std::string redis_server="localhost";
+static const int redis_port=6379;
+// typedef configuration::data::MockDataManager DM;
+typedef configuration::data::RedisDataManager DM;
+typedef configuration::communicator::FileCommunicator FCM;
 
 
 using namespace configuration::data;
 
 TEST (DataManager, ValidString) {
-  EXPECT_TRUE( DM().IsValidString( read_config_file(instrument_file) ) );
+  EXPECT_TRUE( DM(redis_server,redis_port).IsValidString( read_config_file(instrument_file) ) );
 }
 
 TEST (DataManager, AddConfig) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   EXPECT_TRUE( dm.IsValidString( read_config_file(instrument_file) ) );
   EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
 }
 
 TEST (DataManager, AddNewConfig) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
   //  dm.Dump();
   // add new config on top of existing one
@@ -58,7 +59,7 @@ TEST (DataManager, AddNewConfig) {
 
 
 TEST (DataManager, QueryHash) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   dm.AddConfig( read_config_file(instrument_file) );
   // an existing hash key must return a vector containing one element
   EXPECT_TRUE( dm.Query("instrument1:sources:motor4:type").size() == 1 );
@@ -69,7 +70,7 @@ TEST (DataManager, QueryHash) {
 }
 
 TEST (DataManager, QuerySet) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   dm.AddConfig( read_config_file(instrument_file) );
   std::vector<std::string> expect_failure = { "type","address","something else"};
   std::vector<std::string> expect_success = { "type","address"};
@@ -95,7 +96,7 @@ TEST (DataManager, QuerySet) {
 }
 
 TEST (DataManager, UpdateHash) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   dm.AddConfig( read_config_file(instrument_file) );
   // test original value
   EXPECT_TRUE( dm.Query("instrument1:sources:motor4:type")[0] == std::string("ca-motor") );
@@ -108,7 +109,7 @@ TEST (DataManager, UpdateHash) {
 }
 
 TEST (DataManager, UpdateSet) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   dm.AddConfig( read_config_file(instrument_file) );
   // overwrite previous config
   EXPECT_TRUE( dm.Update("instrument1:sources:motor1:type","ca-motor") );
@@ -121,7 +122,7 @@ TEST (DataManager, UpdateSet) {
 }
 
 TEST (DataManager, DeleteHash) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   dm.AddConfig( read_config_file(instrument_file) );
   // test key existence
   int size = dm.Query("instrument1:sources:motor4:type").size();
@@ -136,7 +137,7 @@ TEST (DataManager, DeleteHash) {
 }
 
 TEST (DataManager, DeleteSet) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   dm.AddConfig( read_config_file(instrument_file) );
   // test key existence
   int size = dm.Query("instrument1:sources").size();
@@ -151,13 +152,13 @@ TEST (DataManager, DeleteSet) {
   }
   // test success in deleting non-existing key
   EXPECT_TRUE( dm.Delete("instrument1:sources") );
-  CM c;
-  EXPECT_TRUE( dm.Notify<CM>(c) );
+  FCM c;
+  EXPECT_TRUE( dm.Notify<FCM>(c) );
 }
 
 
 TEST (DataManager, Updates) {
-  DM dm;
+  DM dm(redis_server,redis_port);
   // test updates initially void
   EXPECT_TRUE( dm.UpdatesList().size() == 0 );
   dm.AddConfig( read_config_file(instrument_file) );
@@ -165,8 +166,8 @@ TEST (DataManager, Updates) {
   // test updates existence
   EXPECT_TRUE( dm.UpdatesList().size() > 0 );
   // test delete success
-  CM c;
-  EXPECT_TRUE( dm.Notify<CM>(c) );
+  FCM c;
+  EXPECT_TRUE( dm.Notify<FCM>(c) );
   // test updates empty after notification
   EXPECT_FALSE( dm.UpdatesList().size() > 0 );
 }

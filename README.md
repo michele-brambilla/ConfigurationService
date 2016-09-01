@@ -8,3 +8,11 @@ Actions available:
     * SubscribeToKey
     * GetKeyValue
     * UpdateKeyValue
+    
+    
+Testing
+------
+
+Run single test
+
+./test/data_test --gtest_filter="*UpdateSet*"

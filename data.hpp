@@ -12,18 +12,9 @@
 namespace configuration {
 
   namespace data {
-    static const char* kTypeNames[] = 
-      { "Null", "False", "True", "Object", "Array", "String", "Number" };
-    
-    struct DataManager {
-      DataManager() { };
-      
-      std::string AddConfig(std::string);
-      
-      bool NotifyNewConfig(std::string);
+    // static const char* kTypeNames[] = 
+    //   { "Null", "False", "True", "Object", "Array", "String", "Number" };
 
-      bool IsValidString(std::string);
-    };
     
     struct MockContainer {
       typedef std::string key_type;
@@ -59,22 +50,27 @@ namespace configuration {
       return os;
     }
 
-        
+
+
+    struct DataManager {
+      DataManager() { };
+    };
+    
     struct MockDataManager : DataManager {
       typedef  MockDataManager self_t;
 
       MockDataManager() { };
       void Dump(std::ostream& os=std::cout) { os << container << std::endl; }
       
-      self_t& AddConfig(std::string config) {
+      self_t& AddConfig(std::string conf) {
         rapidjson::Document t;
-        t.Parse(config.c_str());
+        t.Parse(conf.c_str());
         if( t.HasParseError() ) { throw std::runtime_error("Error: invalid configuration"); }
         scan(t.MemberBegin(),t.MemberEnd());
         return *this;
       }
       
-      MockContainer::value_type Query(const std::string& key) const {
+      std::vector<std::string> Query(const std::string& key) const {
         if( KeyExists(key) )
           return ReturnValue(key);
         std::cerr << "Key " << key << " doesn't exists" << std::endl;
@@ -82,19 +78,13 @@ namespace configuration {
       }
       
       bool Update(const std::string& key, const std::string& value) {
-        if( !KeyExists(key) )
-          return false;
-        if( IsSet(key) ) {
-          //          container[key].push_back(value);
-
-          std::size_t found = key.find_last_of(":");
-          std::cout << key.substr(0,found) << " : " << key.substr(found+1) << std::endl;
-
-          throw std::runtime_error("Set update not implemented");
+        if( !KeyExists(key) ) {
+          AddToHash(key,value);
+          return UpdateParent(key);
         }
-        else {
+        else
           UpdateHashValue(key,value);
-        }
+        
         updates.push_back(std::pair<std::string,std::string>(key,"u"));
         return true;
       }
@@ -149,10 +139,7 @@ namespace configuration {
       
       MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
-      
-      // bool ConfigAlreadyPresent(const std::string& key) {
-      //   return false;//d.HasMember(key.c_str());
-      // }
+
       bool KeyExists(const std::string& key) const {
         return (container.find(key) != container.end());
       }
@@ -167,6 +154,10 @@ namespace configuration {
       }
       void AddToHash(const MockContainer::key_type& key, const MockContainer::value_type& value) {
         container.AddKeyValue(key,value);
+        updates.push_back(std::pair<std::string,std::string>(key,"a"));
+      }
+      void AddToHash(const std::string& key, const std::string& value) {
+        container[key].push_back(value);
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
       }
 
@@ -196,7 +187,7 @@ namespace configuration {
         return nelem;
       }
 
-      MockContainer::value_type ReturnValue(const std::string& key) const {
+      std::vector<std::string> ReturnValue(const std::string& key) const {
         return container.find(key)->second;
       }
 
@@ -204,11 +195,40 @@ namespace configuration {
         container[key][0]=value;
         return true;
       }
-      
-      void scan(rapidjson::Value::MemberIterator first,
+
+
+      bool AddToParent(const std::string& key,const std::string& value) {
+        container[key].push_back(value);
+        return true;
+      }
+
+      bool UpdateParent(const std::string& key) {
+        std::size_t found = key.find_last_of(":");
+        std::string parent_key=key.substr(0,found);
+        std::string parent_value=key.substr(found+1);
+        if( !KeyExists(parent_key) ) {
+          std::cerr << "Parent key " << parent_key << " doesn't exists" << std::endl;
+          UpdateParent(parent_key);
+          container[parent_key].push_back(parent_value);
+          return true;
+        }
+        AddToParent(parent_key,parent_value);
+        return true;
+      }
+
+      bool scan(rapidjson::Value::MemberIterator first,
                 rapidjson::Value::MemberIterator last,
                 std::string prefix="") {
+        //        std::cout << prefix << std::endl;
 
+        // for( auto& it = first; it != last; ++it) {
+        //   std::cout << std::string(it->name.GetString()) << std::endl;
+        //   if( KeyExists(it->name.GetString()) ) {
+        //     throw std::runtime_error("configuration exists");
+        //   }
+        // }
+        //        return false;
+        
         std::vector<std::string> values;
         std::string separator="";
         if(prefix!="")
@@ -224,18 +244,25 @@ namespace configuration {
             if(it->value.IsString()) { // if value is a string create a "hash-value"
               std::vector<std::string> tmp;
               tmp.push_back(std::string(it->value.GetString()));
-              AddToHash(prefix+separator+it->name.GetString(),tmp);
+              // if key doesn't exists add to config, else erro message
+              if( !KeyExists(prefix+separator+it->name.GetString()) )
+                AddToHash(prefix+separator+it->name.GetString(),tmp);
+              else {
+                std::cerr << "key " << prefix+separator+it->name.GetString() << " exists, not added to configuration" << std::endl;
+                return false;
+              }
             }
             else
               throw std::runtime_error("Error parsing configuration: value is neither an object nor a string");
           }
         }
-        if (prefix=="") { 
-          AddToKeyList("source",values);
+        if (prefix=="") {
+          AddToKeyList("main",values);
         }
         else {
           AddToKeyList(prefix,values);
         }
+        return true;
       }
     };
     

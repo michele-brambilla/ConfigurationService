@@ -8,7 +8,7 @@ const char* instrument_file = "../sample/example_instrument.js";
 std::ifstream open_config_file(const char* s) {
   std::ifstream in;
   try {
-    in.open(instrument_file);
+    in.open(s);
     in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
   }
   catch (std::ifstream::failure e) {
@@ -34,15 +34,27 @@ typedef configuration::data::MockDataManager DM;
 
 using namespace configuration::data;
 
-// TEST (DataManager, ValidString) {
-//   EXPECT_TRUE( DM().IsValidString( read_config_file(instrument_file) ) );
-// }
+TEST (DataManager, ValidString) {
+  EXPECT_TRUE( DM().IsValidString( read_config_file(instrument_file) ) );
+}
 
 TEST (DataManager, AddConfig) {
   DM dm;
-  dm.AddConfig( read_config_file(instrument_file) );
   EXPECT_TRUE( dm.IsValidString( read_config_file(instrument_file) ) );
+  dm.AddConfig( read_config_file(instrument_file) );
 }
+
+TEST (DataManager, AddNewConfig) {
+  DM dm;
+  dm.AddConfig( read_config_file(instrument_file) );
+  dm.Dump();
+  // add new config on top of existing one
+  dm.AddConfig( read_config_file("../sample/example_instrument.js") );
+
+  //  EXPECT_TRUE( dm.IsValidString( read_config_file("../sample/example_instrument2.js") ) );
+  //  dm.Dump();
+}
+
 
 TEST (DataManager, QueryHash) {
   DM dm;
@@ -93,11 +105,19 @@ TEST (DataManager, UpdateHash) {
   EXPECT_FALSE( dm.Query("instrument1:sources:motor4:type")[0] == std::string("ca-motor") );
   EXPECT_TRUE( dm.Query("instrument1:sources:motor4:type")[0] == std::string("new-ca-motor") );
 }
-// TEST (DataManager, UpdateSet) {
-//   DM dm;
-//   dm.AddConfig( read_config_file(instrument_file) );
-//   EXPECT_TRUE( dm.Update("instrument1:sources:motor4","status") );
-// }
+
+TEST (DataManager, UpdateSet) {
+  DM dm;
+  dm.AddConfig( read_config_file(instrument_file) );
+  // overwrite previous config
+  EXPECT_TRUE( dm.Update("instrument1:sources:motor1:type","ca-motor") );
+  // add new field to config
+  EXPECT_TRUE( dm.Update("instrument1:sources:motor1:address-backup","IOC:m1-backup") );
+  // add new field to parent
+  EXPECT_TRUE( dm.Update("instrument1:x:sources:temp1:address","STC1") );
+  EXPECT_TRUE( dm.Update("instrument1:x:sources:temp1:type","pv-temp") );
+  //  dm.Dump();
+}
 
 TEST (DataManager, DeleteHash) {
   DM dm;
@@ -131,7 +151,7 @@ TEST (DataManager, DeleteSet) {
   
   // test success in deleting non-existing key
   EXPECT_TRUE( dm.Delete("instrument1:sources") );
-  dm.Notify();
+  //  dm.Notify();
 }
 
 

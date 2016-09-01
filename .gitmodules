@@ -2,3 +2,6 @@
 	path = rapidjson
 	url = git@github.com:miloyip/rapidjson.git
 
+[submodule "redox"]
+	path = redox
+	url = git@github.com:hmartiro/redox.git

@@ -18,6 +18,38 @@ namespace configuration {
 
   using namespace container;
   
+  namespace utils {
+    struct typelist
+    {
+      typedef int SADD_t; //reply of type 3
+      typedef std::string GET_t; //reply of type 2
+      typedef std::string SET_t; //reply of type 2
+      typedef std::vector<std::string> KEYS_t; //reply of type 1 (or 5?)
+    };
+    
+    
+    template<typename Output>
+    bool ExecRedisCmd(redox::Redox& r, std::string& s) {
+      auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
+      if( !c.ok() ) {
+        std::cerr << c.lastError() << std::endl;
+        return false;
+      }
+      return true;
+    }
+    template<typename Output>
+    bool ExecRedisCmd(redox::Redox& r, std::string& s, Output& out) {
+      auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
+      if( !c.ok() ) {
+        std::cerr << c.lastError() << std::endl;
+        return false;
+      }
+      out = c.reply();
+      return true;
+    }
+    
+  }
+  
   namespace data {
     
 
@@ -297,31 +329,6 @@ namespace configuration {
       MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
 
-      bool KeyExists(const std::string& key) {
-        //        std::cout << key << std::endl;
-        //        auto& c = rdx.commandSync<std::vector<std::string> >({"KEYS", key});
-        // if(c.ok()) std::cout << c.cmd() << ": " << // c.reply()[0] <<
-        //              std::endl;
-        // else std::cerr << "Command has error code " << c.status() << std::endl;
-        //        c.free();
-        
-        // rdx.command<std::string>({"KEYS", key},
-        //                          [](redox::Command<std::string>& c){
-        //                            if(!c.ok())
-        //                              std::cout << "error " << c.status() << "\n";
-        //                            else
-        //                              std::cout << c.reply() << std::endl;
-        //                          });
-        //        std:: cout << rdx.getConnectState() << std::endl;
-        // auto& c = rdx.commandSync<std::string>({"KEYS", key});
-        // if(c.ok())
-        //   key_exists = true;//std::cout << "data matches!" << std::endl;
-        // else
-        //   key_exists = false;//std::cerr << "Failed to get key! Status: " << c.status() << std::endl;
-        // c.free();
-        return false;//c.ok();
-        //        return (container.find(key) != container.end());
-      }
       
       bool IsSet(const std::string& key) { return container[key].size() > 1; }
       
@@ -425,58 +432,56 @@ namespace configuration {
       }
 
       
-      bool scan_old(rapidjson::Value::MemberIterator first,
-                rapidjson::Value::MemberIterator last,
-                std::string prefix="") {
-        
-        bool scan_ok = true;
-        for( auto it = first; it != last; ++it) {
-          
-          if( KeyExists(it->name.GetString()) ) {
-            std::cerr << "Error: configuration " << it->name.GetString() << " exists, nothing to do"<< std::endl;
-            return false;
-          }
-        }
-        
-        std::vector<std::string> values;
-        std::string separator="";
-        if(prefix!="")
-          separator=":";
-        
-        for( auto& it = first; it != last; ++it) {
-          values.push_back(std::string(it->name.GetString()));
-          if(it->value.IsObject())  // if value is object create a  "set"
-            scan_ok &= scan( it->value.MemberBegin(),
-                             it->value.MemberEnd(),
-                             prefix+separator+it->name.GetString());
-          else {
-            if(it->value.IsString()) { // if value is a string create a "hash-value"
-              std::vector<std::string> tmp;
-              tmp.push_back(std::string(it->value.GetString()));
-              if( !KeyExists(prefix+separator+it->name.GetString()) )
-                AddToHash(prefix+separator+it->name.GetString(),tmp);
-              else {
-                std::cerr << "key " << prefix+separator+it->name.GetString() << " exists, not added to configuration" << std::endl;
-                return false;
-              }
-            }
-            else
-              throw std::runtime_error("Error parsing configuration: value is neither an object nor a string");
-          }
-        }
 
-        if (prefix=="") {
-          AddToKeyList("main",values);
-        }
-        else {
-          AddToKeyList(prefix,values);
-        }
-
-        return scan_ok;
+      bool KeyExists(const std::string& key) {
+        std::string s="KEYS "+key;
+        utils::typelist::KEYS_t result;
+        utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result);
+        //        std::cout << utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result) << std::endl;
+        //        std::cout << "size of result: " << result.size() << std::endl;
+        return result.size()>0;
       }
 
       
+      bool scan(rapidjson::Value::MemberIterator first,
+                rapidjson::Value::MemberIterator last,
+                std::string prefix="") {
+  
+        bool is_ok = true;
+        std::string separator="";
+        if(prefix!="")
+          separator=":";
+  
+        for( auto& it = first; it != last; ++it) {
+          is_ok &= (!KeyExists(prefix+separator+std::string(it->name.GetString())) );
+          if(it->value.IsObject()) {
+            std::string s = "SADD ";
+            s += prefix+separator+std::string(it->name.GetString())+std::string(" ");
+            for( auto v = it->value.MemberBegin();
+                 v != it->value.MemberEnd(); ++v)
+              s += v->name.GetString()+std::string(" ");
 
+            if( is_ok )
+              utils::ExecRedisCmd<utils::typelist::SADD_t>(rdx,s);
+            // else
+            //   std::cout << "exising key, not added" << std::endl;
+            prefix += separator+std::string(it->name.GetString());
+            is_ok &= scan(it->value.MemberBegin(),
+                          it->value.MemberEnd(),
+                          prefix);
+          }
+          else {
+            std::string s = "SET "+prefix+separator+std::string(it->name.GetString())+std::string(" ");
+            s+= it->value.GetString();
+            if(is_ok)
+              utils::ExecRedisCmd<utils::typelist::SET_t>(rdx,s);
+            // else
+            //   std::cout << "exising key, not added" << std::endl;
+
+          }
+        }
+        return is_ok;
+      }
 
 
 

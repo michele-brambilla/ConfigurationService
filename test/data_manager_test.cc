@@ -38,26 +38,27 @@ typedef configuration::communicator::FileCommunicator FCM;
 
 using namespace configuration::data;
 
-// TEST (DataManager, ValidString) {
-//   EXPECT_TRUE( DM(redis_server,redis_port).IsValidString( read_config_file(instrument_file) ) );
-// }
+TEST (DataManager, ValidString) {
+  EXPECT_TRUE( DM(redis_server,redis_port).IsValidString( read_config_file(instrument_file) ) );
+}
 
 TEST (DataManager, AddConfig) {
   DM dm(redis_server,redis_port);
-   dm.Clear();
+  dm.Clear();
   EXPECT_TRUE( dm.IsValidString( read_config_file(instrument_file) ) );
   EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
 }
 
-// TEST (DataManager, AddNewConfig) {
-//   DM dm(redis_server,redis_port);
-//   EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
-//   //  dm.Dump();
-//   // add new config on top of existing one
-//   EXPECT_FALSE( dm.AddConfig( read_config_file("../sample/example_instrument.js") ) );
-//   EXPECT_TRUE( dm.AddConfig( read_config_file("../sample/example_instrument2.js") ) );
-//   dm.Clear();
-// }
+TEST (DataManager, AddNewConfig) {
+  DM dm(redis_server,redis_port);
+  dm.Clear();
+  EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
+  //  dm.Dump();
+  // add new config on top of existing one
+  EXPECT_FALSE( dm.AddConfig( read_config_file("../sample/example_instrument.js") ) );
+  EXPECT_TRUE( dm.AddConfig( read_config_file("../sample/example_instrument2.js") ) );
+  dm.Clear();
+}
 
 
 // TEST (DataManager, QueryHash) {

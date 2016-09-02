@@ -283,22 +283,44 @@ namespace configuration {
     {
       typedef RedisDataManager self_t;
 
-      RedisDataManager(const std::string& redis_server, const int& redis_port) {
+      RedisDataManager(const std::string& redis_server, const int& redis_port) : rdx(std::cout,redox::log::Level::Info) {
         if( !rdx.connect(redis_server, redis_port) )
           throw std::runtime_error("Can't connect to REDIS server");
       };
 
-      
       void Dump(std::ostream& os=std::cout) { os << container << std::endl; }
+      void Clear() { rdx.command<std::string>({"FLUSHALL"}); }
       
     private:
-      
+
       redox::Redox rdx;
       MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
-      
-      bool KeyExists(const std::string& key) const {
-        return (container.find(key) != container.end());
+
+      bool KeyExists(const std::string& key) {
+        //        std::cout << key << std::endl;
+        //        auto& c = rdx.commandSync<std::vector<std::string> >({"KEYS", key});
+        // if(c.ok()) std::cout << c.cmd() << ": " << // c.reply()[0] <<
+        //              std::endl;
+        // else std::cerr << "Command has error code " << c.status() << std::endl;
+        //        c.free();
+        
+        // rdx.command<std::string>({"KEYS", key},
+        //                          [](redox::Command<std::string>& c){
+        //                            if(!c.ok())
+        //                              std::cout << "error " << c.status() << "\n";
+        //                            else
+        //                              std::cout << c.reply() << std::endl;
+        //                          });
+        //        std:: cout << rdx.getConnectState() << std::endl;
+        // auto& c = rdx.commandSync<std::string>({"KEYS", key});
+        // if(c.ok())
+        //   key_exists = true;//std::cout << "data matches!" << std::endl;
+        // else
+        //   key_exists = false;//std::cerr << "Failed to get key! Status: " << c.status() << std::endl;
+        // c.free();
+        return false;//c.ok();
+        //        return (container.find(key) != container.end());
       }
       
       bool IsSet(const std::string& key) { return container[key].size() > 1; }
@@ -306,19 +328,31 @@ namespace configuration {
       void NotifyKeyNew(const std::string& key) { }; // new key is added to the configuration
       void NotifyValueUpdate(const std::string& key) { }; // the value of the key has been updated
 
-      void AddToKeyList(const MockContainer::key_type& key, const MockContainer::value_type& value) {
-        container.AddKeyValue(key,value);
+      void AddToKeyList(const MockContainer::key_type& key, const std::vector<std::string>& value) {
+
+        std::vector<std::string> l={"SADD",key};
+        l.insert(l.end(),value.begin(),value.end());
+        // the db has to be updated after the add, so use sync
+        auto& c = rdx.commandSync<std::string>(l);
+        std::cout << c.cmd() << std::endl;
+        std::cout << c.lastError() << std::endl;
+        // computing time vs comm time...
+        // for( auto& v : value)
+        //   rdx.command<std::string>({"SADD",key,v});
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
       }
-      void AddToHash(const MockContainer::key_type& key, const MockContainer::value_type& value) {
-        container.AddKeyValue(key,value);
-        updates.push_back(std::pair<std::string,std::string>(key,"a"));
+      
+      void AddToHash(const MockContainer::key_type& key, const std::vector<std::string>& value) {
+        for(auto& v : value)
+          AddToHash(key,v);
       }
       void AddToHash(const std::string& key, const std::string& value) {
-        container[key].push_back(value);
+        rdx.set(key,value);
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
       }
 
+
+      
       bool RemoveFromParent(const std::string& key,const std::string& value) {
         MockContainer::value_type::iterator it = std::find(container[key].begin(),container[key].end(),value);
         if( it != container[key].end()) {
@@ -345,8 +379,24 @@ namespace configuration {
         return nelem;
       }
 
-      std::vector<std::string> ReturnValue(const std::string& key) const {
-        return container.find(key)->second;
+      std::vector<std::string> ReturnValue(const std::string& key) {
+        std::vector<std::string> result;
+        rdx.command<std::vector<std::string> >({"SMEMBERS", "instrument1"},
+                                              [&](redox::Command<std::vector<std::string> >& c){
+                                                if(!c.ok()) return;
+                                                std::cout << "Last elements: ";
+                                                for (const std::string& s : c.reply()) {
+                                                  std::cout << s << " ";
+                                                  //                                                  result.push_back(s);
+                                                }
+                                                std::cout << std::endl;
+                                              }
+                                               
+                                               );
+        rdx.wait();
+        for( auto& v : result)
+          std::cout << v << std::endl;
+        return result;
       }
 
       bool UpdateHashValue(const std::string& key,const std::string& value) {
@@ -374,12 +424,14 @@ namespace configuration {
         return true;
       }
 
-      bool scan(rapidjson::Value::MemberIterator first,
+      
+      bool scan_old(rapidjson::Value::MemberIterator first,
                 rapidjson::Value::MemberIterator last,
                 std::string prefix="") {
         
         bool scan_ok = true;
         for( auto it = first; it != last; ++it) {
+          
           if( KeyExists(it->name.GetString()) ) {
             std::cerr << "Error: configuration " << it->name.GetString() << " exists, nothing to do"<< std::endl;
             return false;
@@ -401,7 +453,6 @@ namespace configuration {
             if(it->value.IsString()) { // if value is a string create a "hash-value"
               std::vector<std::string> tmp;
               tmp.push_back(std::string(it->value.GetString()));
-              // if key doesn't exists add to config, else erro message
               if( !KeyExists(prefix+separator+it->name.GetString()) )
                 AddToHash(prefix+separator+it->name.GetString(),tmp);
               else {
@@ -420,8 +471,15 @@ namespace configuration {
         else {
           AddToKeyList(prefix,values);
         }
+
         return scan_ok;
       }
+
+      
+
+
+
+
     };
 
     

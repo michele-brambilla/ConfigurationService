@@ -9,6 +9,17 @@ Actions available:
     * GetKeyValue
     * UpdateKeyValue
     
+Install
+-----
+Some libraries are submodules:
+    * rapidjson
+    * redox
+To clone correctly:
+```
+git submodule init
+git submodule update
+```
+Building the submodules is part of the standard build system.
 
 REDIS
 -----
@@ -16,7 +27,6 @@ REDIS
 Requires hiredis, libev for redox 
 ```
 yum install hiredis libev
-git clone git@github.com:hmartiro/redox.git redox
 ```
 
 Testing

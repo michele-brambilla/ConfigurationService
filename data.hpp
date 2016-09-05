@@ -61,7 +61,12 @@ namespace configuration {
           return UpdateHashValue(key,value);
         }        
       }
-        
+
+      bool Delete(const std::string& key) {
+        if( !KeyExists(key) ) return false;
+        return RemoveKey(key);
+      }
+      
       redox::Redox& redox() { return rdx; } 
       
     private:
@@ -70,7 +75,7 @@ namespace configuration {
       MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
 
-      bool KeyExists(const std::string& key) {
+      bool KeyExists (const std::string& key) {
         std::string s="KEYS "+key;
         utils::typelist::KEYS_t result;
         utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result);
@@ -88,8 +93,8 @@ namespace configuration {
         l.insert(l.end(),value.begin(),value.end());
         // the db has to be updated after the add, so use sync
         auto& c = rdx.commandSync<std::string>(l);
-        std::cout << c.cmd() << std::endl;
-        std::cout << c.lastError() << std::endl;
+        // std::cout << c.cmd() << std::endl;
+        // std::cout << c.lastError() << std::endl;
         // computing time vs comm time...
         // for( auto& v : value)
         //   rdx.command<std::string>({"SADD",key,v});
@@ -106,35 +111,55 @@ namespace configuration {
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
         return rdx.set(key,value);
       }
-
-
       
-      bool RemoveFromParent(const std::string& key,const std::string& value) {
-        MockContainer::value_type::iterator it = std::find(container[key].begin(),container[key].end(),value);
-        if( it != container[key].end()) {
-          updates.push_back(std::pair<std::string,std::string>(key,"u"));
-          container[key].erase(it);
-          return true;
-        }
-        return false;
-      }
-      int RemoveKey(const std::string& key) {
-        updates.push_back(std::pair<std::string,std::string>(key,"d"));   
-        return container.erase(key);
+      bool RemoveFromParent(const std::string& parent,const std::string& name) {
+        bool is_ok = true;
+        is_ok &= utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,std::string("SREM ")+parent+" "+name);
+        // if parents gets empty, delete
+        int nelem;
+        utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+parent,nelem);
+        if (nelem == 0)
+          is_ok &= (RemoveKey(parent) > 0);
+        
+        return is_ok;
       }
       int RemoveChildren(const std::string& key) {
-        int nelem = 0;
-        MockContainer::iterator first=container.find(key);
-        MockContainer::iterator last=container.find(key);
-        while(last->first.substr(0, key.size()) == key) {
-          updates.push_back(std::pair<std::string,std::string>(last->first,"d"));
-          ++last;
-          ++nelem;
-        }
-        container.erase(first,last);
-        return nelem;
+        utils::typelist::KEYS_t children_list;
+        std::string cmd="KEYS "+key+":*";
+        utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,cmd,children_list);
+        for( auto& c : children_list )
+          utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,"DEL "+c);
+        return children_list.size();
       }
 
+      int RemoveKey(const std::string& key) {
+        updates.push_back(std::pair<std::string,std::string>(key,"d"));   
+        std::string key_type;
+        utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
+        bool is_ok = true;
+        
+        if(key_type == "set") {
+          // remove children
+          int nelem = RemoveChildren(key);
+          is_ok &= (nelem > 0 ? true : false);
+        }
+        else
+          if(key_type != "string") {
+            throw std::runtime_error("Type "+key_type+" not supported");
+            return false;
+          }
+        
+        // remove from parent
+        std::size_t found = key.find_last_of(":");
+        // std::string parent_key=key.substr(0,found);
+        // std::string parent_value=key.substr(found+1);
+        is_ok &= RemoveFromParent(key.substr(0,found),key.substr(found+1));
+        is_ok &= utils::ExecRedisCmd<configuration::utils::typelist::DEL_t>(rdx,std::string("DEL ")+key);
+        return is_ok;
+        
+      }
+
+      
       bool UpdateHashValue(const std::string& key,const std::string& value) {
         std::string cmd = std::string("SET ")+key+" "+value;
         return utils::ExecRedisCmd<std::string>(rdx,cmd);

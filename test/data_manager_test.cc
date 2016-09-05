@@ -154,29 +154,36 @@ TEST (DataManager, DeleteHash) {
   // test missing key
   EXPECT_FALSE( dm.Query("instrument1:sources:motor4:type").size() > 0 );
 
-//   // test success in deleting non-existing key
-//   EXPECT_TRUE( dm.Delete("instrument1:sources:motor4:type") );
+  // test success in deleting non-existing key
+  EXPECT_FALSE( dm.Delete("instrument1:sources:motor4:type") );
 }
 
-// TEST (DataManager, DeleteSet) {
-//   DM dm(redis_server,redis_port);
-//   dm.AddConfig( read_config_file(instrument_file) );
-//   // test key existence
-//   int size = dm.Query("instrument1:sources").size();
-//   EXPECT_TRUE( size > 0 );
-//   // test delete success
-//   EXPECT_TRUE( dm.Delete("instrument1:sources") );
-//   // test missing key
-//   EXPECT_FALSE( dm.Query("instrument1:sources").size() > 0 );
-//   // test other keys not affected
-//   for (auto& key : dm.Query("instrument1") ) {
-//     EXPECT_TRUE( dm.Query("instrument1:"+key).size() > 0 );
-//   }
-//   // test success in deleting non-existing key
-//   EXPECT_TRUE( dm.Delete("instrument1:sources") );
-//   FCM c;
+TEST (DataManager, DeleteSet) {
+  DM dm(redis_server,redis_port);
+  dm.Clear();
+  dm.AddConfig( read_config_file(instrument_file) );
+  // test key existence
+  int size = dm.Query("instrument1:sources").size();
+  EXPECT_TRUE( size > 0 );
+  // test delete success
+  EXPECT_TRUE( dm.Delete("instrument1:sources") );
+  // test missing key
+  EXPECT_FALSE( dm.Query("instrument1:sources").size() > 0 );
+  // test other keys not affected
+  for (auto& key : dm.Query("instrument1") ) {
+    EXPECT_TRUE( dm.Query("instrument1:"+key).size() > 0 );
+  }
+  // test failure in deleting non-existing key
+  EXPECT_FALSE( dm.Delete("instrument1:sources") );
+
+  // test deletion parent when empty
+  EXPECT_TRUE( dm.Delete("instrument1:experiment:id") );
+  EXPECT_TRUE( dm.Delete("instrument1:experiment:name") );
+  EXPECT_FALSE( (dm.Query("instrument1:experiment").size() > 0 ) );
+  
+  //   FCM c;
 //   EXPECT_TRUE( dm.Notify<FCM>(c) );
-//}
+}
 
 
 // TEST (DataManager, Updates) {

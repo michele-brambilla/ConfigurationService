@@ -52,10 +52,10 @@ namespace configuration {
 
       }
       
-      int Delete(const std::string& key) {
+      bool Delete(const std::string& key) {
         if( !KeyExists(key) ) {
           std::cerr << "Key " << key << " doesn't exists" << std::endl;
-          return true;
+          return false;
         }
         int deleted_keys = 0;
         if( IsSet(key) ) {

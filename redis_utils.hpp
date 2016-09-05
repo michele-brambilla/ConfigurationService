@@ -14,6 +14,7 @@ namespace configuration {
     struct typelist
     {
       typedef int SADD_t; //reply of type 3
+      typedef int DEL_t; //reply of type 3
 
       typedef std::string TYPE_t; //reply of type 2
 

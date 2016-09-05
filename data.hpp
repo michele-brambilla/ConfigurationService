@@ -59,19 +59,17 @@ namespace configuration {
 
       utils::typelist::KEYS_t Query(const std::string& key) { return ReturnValue(key); }
 
-      utils::typelist::KEYS_t ReturnValue(const std::string& key) {
+      utils::typelist::LIST_t ReturnValue(const std::string& key) {
         utils::typelist::LIST_t result;
         if( !KeyExists(key) ) return result;
-        //          throw std::runtime_error("Key "+key+" doesn't exists");
-        
-        std::cout << "RETURN VALUE " << std::endl;
+
         std::string key_type;
         utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
-        std:: cout << "key_type = " << key_type << std::endl;
-
 
         if(key_type == "set") {
           utils::ExecRedisCmd<utils::typelist::LIST_t>(rdx,std::string("SMEMBERS ")+key,result);
+          // removes eventual empty items
+          result.erase( std::remove( result.begin(), result.end(), "" ), result.end() );
         }
         else
           if(key_type == "string") {
@@ -81,20 +79,6 @@ namespace configuration {
           }
           else
             throw std::runtime_error("Type "+key_type+" not supported");
-        
-        // std::string s = {"SMEMBERS "};
-        // s+=key;
-        // if(  ) {
-        //   //          result.pop_back();
-        //   return result;
-        // }
-        // else {
-        //   utils::typelist::GET_t r;
-        //   s="GET "+key;
-        //   if( !utils::ExecRedisCmd<utils::typelist::GET_t>(rdx,s,r) )
-        //     throw std::runtime_error("Wrong data type");
-        //   result.push_back(r);
-        // }
 
         return result;
       }

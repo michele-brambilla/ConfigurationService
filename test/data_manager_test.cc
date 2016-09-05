@@ -105,14 +105,15 @@ TEST (DataManager, QuerySet) {
   std::vector<std::string> content;
 
   // a non-exising hash key must return an empty vector
-  EXPECT_TRUE( dm.Query("instrument1:sources:nomotor").size() == 0 );
+  content = dm.Query("instrument1:sources:nomotor");
+  EXPECT_TRUE( content.size() == 0 );
 
   content = dm.Query("instrument1:sources:motor4");
 
-  // // an existing set key must return a vector containing at least one element
+  // an existing set key must return a vector containing at least one element
   EXPECT_TRUE( content.size() != 0  );
   // test set length and content
-  EXPECT_TRUE( content.size() == expect_success.size() );
+  EXPECT_EQ( content.size(), expect_success.size() );
   for( auto& s : expect_success)
     EXPECT_TRUE( std::find(content.begin(), content.end(), s) != content.end() );
   EXPECT_FALSE( content.size() == expect_failure.size() );

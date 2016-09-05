@@ -57,46 +57,69 @@ TEST (DataManager, AddNewConfig) {
   // add new config on top of existing one
   EXPECT_FALSE( dm.AddConfig( read_config_file("../sample/example_instrument.js") ) );
   EXPECT_TRUE( dm.AddConfig( read_config_file("../sample/example_instrument2.js") ) );
-  dm.Clear();
 }
 
 
-// TEST (DataManager, QueryHash) {
-//   DM dm(redis_server,redis_port);
-//   dm.AddConfig( read_config_file(instrument_file) );
-//   // an existing hash key must return a vector containing one element
-//   EXPECT_TRUE( dm.Query("instrument1:sources:motor4:type").size() == 1 );
-//   EXPECT_TRUE( dm.Query("instrument1:sources:motor4:type")[0] == std::string("ca-motor") );
-//   EXPECT_FALSE( dm.Query("instrument1:sources:motor4:type")[0] == std::string("any-value") );
-//   // a non-exising hash key must return an empty vector
-//   EXPECT_TRUE( dm.Query("instrument1:sources:motor4:notype").size() == 0 );
-//   dm.Clear();
-// }
+TEST (DataManager, QueryHash) {
+  DM dm(redis_server,redis_port);
+  //  dm.Clear();
+  //  dm.AddConfig( read_config_file(instrument_file) );
+
+  // {
+  //   std::string key("instrument1:sources:motor2:type");
+  //   std:: cout << "key  = " << key << " -> " << dm.KeyExists(key) << std::endl;
+  //   dm.ReturnValue(key);
+  //   key = "GET "+key;
+  //   std::string out;
+  //   configuration::utils::ExecRedisCmd<configuration::utils::typelist::GET_t>(dm.redox(),key,out);
+  //   std::cout << out << std::endl;
+  // }
+  
+  // {
+  //   std::string key("instrument1:sources:motor2");
+  //   std:: cout << "key  = " << key << " -> " << dm.KeyExists(key) << std::endl;
+  //   dm.ReturnValue(key);
+  //   key = "SMEMBERS "+key;
+  //   std::vector<std::string> out;
+  //   configuration::utils::ExecRedisCmd<configuration::utils::typelist::KEYS_t>(dm.redox(),key,out);
+  //   for( auto& o : out )
+  //     std::cout << o << std::endl;
+  // }
+  
+  // an existing hash key must return a vector containing one element
+  std::string key("instrument1:sources:motor2:type");
+  // std::vector<std::string> res = dm.ReturnValue(key);
+  // res = dm.Query(key);
+  // std::cout << res[0]  << std::endl;
+  EXPECT_EQ( dm.Query(key).size(), 1 );
+  EXPECT_TRUE( dm.Query("instrument1:sources:motor4:type")[0] == std::string("ca-motor") );
+  EXPECT_EQ( dm.Query("instrument1:sources:motor4:notype").size(), 0 );
+   //  a non-exising hash key must return an empty vector
+}
 
 TEST (DataManager, QuerySet) {
   DM dm(redis_server,redis_port);
-  dm.AddConfig( read_config_file(instrument_file) );
-  // std::vector<std::string> expect_failure = { "type","address","something else"};
-  // std::vector<std::string> expect_success = { "type","address"};
-  // std::vector<std::string> content;
+  //  dm.AddConfig( read_config_file(instrument_file) );
+  std::vector<std::string> expect_failure = { "type","address","something else"};
+  std::vector<std::string> expect_success = { "type","address"};
+  std::vector<std::string> content;
 
-  // // a non-exising hash key must return an empty vector
-  // EXPECT_TRUE( dm.Query("instrument1:sources:nomotor").size() == 0 );
+  // a non-exising hash key must return an empty vector
+  EXPECT_TRUE( dm.Query("instrument1:sources:nomotor").size() == 0 );
 
-  // content = dm.Query("instrument1:sources:motor4");
+  content = dm.Query("instrument1:sources:motor4");
 
-  // // // an existing set key must return a vector containing at least one element
-  // EXPECT_TRUE( content.size() != 0  );
-  // // test set length and content
-  // EXPECT_TRUE( content.size() == expect_success.size() );
-  // for( auto& s : expect_success)
-  //   EXPECT_TRUE( std::find(content.begin(), content.end(), s) != content.end() );
-//   EXPECT_FALSE( content.size() == expect_failure.size() );
-//   bool is_true = true;
-//   for( auto& s : expect_failure)
-//     is_true &= ( std::find(content.begin(), content.end(), s) != content.end() );
-//   EXPECT_FALSE( is_true);
-  
+  // // an existing set key must return a vector containing at least one element
+  EXPECT_TRUE( content.size() != 0  );
+  // test set length and content
+  EXPECT_TRUE( content.size() == expect_success.size() );
+  for( auto& s : expect_success)
+    EXPECT_TRUE( std::find(content.begin(), content.end(), s) != content.end() );
+  EXPECT_FALSE( content.size() == expect_failure.size() );
+  bool is_true = true;
+  for( auto& s : expect_failure)
+    is_true &= ( std::find(content.begin(), content.end(), s) != content.end() );
+  EXPECT_FALSE( is_true);
 }
 
 // TEST (DataManager, UpdateHash) {

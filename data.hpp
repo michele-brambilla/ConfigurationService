@@ -50,40 +50,18 @@ namespace configuration {
       
       void Clear() { rdx.command<std::string>({"FLUSHALL"}); }
 
-      bool KeyExists(const std::string& key) {
-        std::string s="KEYS "+key;
-        utils::typelist::KEYS_t result;
-        utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result);
-        return result.size()>0;
-      }
-
       utils::typelist::KEYS_t Query(const std::string& key) { return ReturnValue(key); }
-
-      utils::typelist::LIST_t ReturnValue(const std::string& key) {
-        utils::typelist::LIST_t result;
-        if( !KeyExists(key) ) return result;
-
-        std::string key_type;
-        utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
-
-        if(key_type == "set") {
-          utils::ExecRedisCmd<utils::typelist::LIST_t>(rdx,std::string("SMEMBERS ")+key,result);
-          // removes eventual empty items
-          result.erase( std::remove( result.begin(), result.end(), "" ), result.end() );
+      bool Update(const std::string& key, const std::string& value) {
+        if( !KeyExists(key) ) {
+          bool is_ok = AddToHash(key,value);
+          return (is_ok & UpdateParent(key) );
         }
-        else
-          if(key_type == "string") {
-            std::string tmp;
-            utils::ExecRedisCmd<utils::typelist::VALUE_t>(rdx,std::string("GET ")+key,tmp);
-            result.push_back(tmp);
-          }
-          else
-            throw std::runtime_error("Type "+key_type+" not supported");
-
-        return result;
+        else {
+          updates.push_back(std::pair<std::string,std::string>(key,"u"));          
+          return UpdateHashValue(key,value);
+        }        
       }
-
-      
+        
       redox::Redox& redox() { return rdx; } 
       
     private:
@@ -92,7 +70,13 @@ namespace configuration {
       MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
 
-      
+      bool KeyExists(const std::string& key) {
+        std::string s="KEYS "+key;
+        utils::typelist::KEYS_t result;
+        utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result);
+        return result.size()>0;
+      }
+
       bool IsSet(const std::string& key) { return container[key].size() > 1; }
       
       void NotifyKeyNew(const std::string& key) { }; // new key is added to the configuration
@@ -112,13 +96,15 @@ namespace configuration {
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
       }
       
-      void AddToHash(const MockContainer::key_type& key, const std::vector<std::string>& value) {
+      bool AddToHash(const MockContainer::key_type& key, const std::vector<std::string>& value) {
+        bool is_ok = true;
         for(auto& v : value)
-          AddToHash(key,v);
+          is_ok &= AddToHash(key,v);
+        return is_ok;
       }
-      void AddToHash(const std::string& key, const std::string& value) {
-        rdx.set(key,value);
+      bool AddToHash(const std::string& key, const std::string& value) {
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
+        return rdx.set(key,value);
       }
 
 
@@ -149,34 +135,55 @@ namespace configuration {
         return nelem;
       }
 
-      
-
       bool UpdateHashValue(const std::string& key,const std::string& value) {
-        container[key][0]=value;
-        return true;
+        std::string cmd = std::string("SET ")+key+" "+value;
+        return utils::ExecRedisCmd<std::string>(rdx,cmd);
       }
 
 
       bool AddToParent(const std::string& key,const std::string& value) {
-        container[key].push_back(value);
-        return true;
+        std::string cmd=std::string("SADD ")+key+" "+value;
+        return utils::ExecRedisCmd<int>(rdx,cmd);;
       }
 
       bool UpdateParent(const std::string& key) {
+        bool is_ok = true;
         std::size_t found = key.find_last_of(":");
         std::string parent_key=key.substr(0,found);
         std::string parent_value=key.substr(found+1);
         if( !KeyExists(parent_key) ) {
-          std::cerr << "Parent key " << parent_key << " doesn't exists" << std::endl;
-          UpdateParent(parent_key);
-          container[parent_key].push_back(parent_value);
-          return true;
+          is_ok &= UpdateParent(parent_key);
+          is_ok &= AddToParent(parent_key,parent_value);
+          return is_ok;
         }
-        AddToParent(parent_key,parent_value);
-        return true;
+
+        return AddToParent(parent_key,parent_value);
       }
 
       
+      utils::typelist::LIST_t ReturnValue(const std::string& key) {
+        utils::typelist::LIST_t result;
+        if( !KeyExists(key) ) return result;
+
+        std::string key_type;
+        utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
+
+        if(key_type == "set") {
+          utils::ExecRedisCmd<utils::typelist::LIST_t>(rdx,std::string("SMEMBERS ")+key,result);
+          // removes eventual empty items
+          result.erase( std::remove( result.begin(), result.end(), "" ), result.end() );
+        }
+        else
+          if(key_type == "string") {
+            std::string tmp;
+            utils::ExecRedisCmd<utils::typelist::VALUE_t>(rdx,std::string("GET ")+key,tmp);
+            result.push_back(tmp);
+          }
+          else
+            throw std::runtime_error("Type "+key_type+" not supported");
+
+        return result;
+      }
 
 
       

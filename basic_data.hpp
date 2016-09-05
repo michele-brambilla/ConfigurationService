@@ -34,22 +34,22 @@ namespace configuration {
       }
       
       std::vector<std::string> Query(const std::string& key) const {
-        // if( KeyExists(key) )
-          return ReturnValue(key);
-        // std::cerr << "Key " << key << " doesn't exists" << std::endl;
-        //  return MockContainer::value_type();
+        return ReturnValue(key);
       }
       
       bool Update(const std::string& key, const std::string& value) {
+        std::cout << "key " << key;
         if( !KeyExists(key) ) {
+          std::cout << " doesn't exists" << std::endl;
           AddToHash(key,value);
           return UpdateParent(key);
         }
-        else
-          UpdateHashValue(key,value);
-        
-        updates.push_back(std::pair<std::string,std::string>(key,"u"));
-        return true;
+        else {
+          std::cout << " exists" << std::endl;
+          updates.push_back(std::pair<std::string,std::string>(key,"u"));          
+          return UpdateHashValue(key,value);
+        }        
+
       }
       
       int Delete(const std::string& key) {
@@ -105,8 +105,8 @@ namespace configuration {
       virtual void NotifyValueUpdate(const std::string&) { };
 
       virtual void AddToKeyList(const MockContainer::key_type&, const MockContainer::value_type&) { }
-      virtual void AddToHash(const MockContainer::key_type&, const MockContainer::value_type&) { }
-      virtual void AddToHash(const std::string&, const std::string&) { };
+      virtual bool AddToHash(const MockContainer::key_type&, const MockContainer::value_type&) {return false; }
+      virtual bool AddToHash(const std::string&, const std::string&) { return false; };
 
       virtual bool RemoveFromParent(const std::string&, const std::string&) { return false; }
 
@@ -119,7 +119,6 @@ namespace configuration {
       }
 
       virtual bool UpdateHashValue(const std::string&,const std::string&) { return false; }
-
 
       virtual bool AddToParent(const std::string&,const std::string&) { return false; }
 
@@ -160,13 +159,15 @@ namespace configuration {
         container.AddKeyValue(key,value);
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
       }
-      void AddToHash(const MockContainer::key_type& key, const MockContainer::value_type& value) {
+      bool AddToHash(const MockContainer::key_type& key, const MockContainer::value_type& value) {
         container.AddKeyValue(key,value);
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
+        return true;
       }
-      void AddToHash(const std::string& key, const std::string& value) {
+      bool AddToHash(const std::string& key, const std::string& value) {
         container[key].push_back(value);
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
+        return true;
       }
 
       bool RemoveFromParent(const std::string& key,const std::string& value) {

@@ -30,8 +30,10 @@ namespace configuration {
       RedisDataManager(const std::string& redis_server,
                        const int& redis_port,
                        std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal), log(logger) {
-        if( !rdx.connect(redis_server, redis_port) )
+        if( !rdx.connect(redis_server, redis_port) ) {
+          log << "Can't connect to REDIS server\n";
           throw std::runtime_error("Can't connect to REDIS server");
+        }
       };
 
       void Dump(std::ostream& os=std::cout) {
@@ -69,21 +71,6 @@ namespace configuration {
       }
 
 
-      void AddToKeyList(const MockContainer::key_type& key,
-                        const std::vector<std::string>& value) override {
-
-        std::vector<std::string> l={"SADD",key};
-        l.insert(l.end(),value.begin(),value.end());
-        // the db has to be updated after the add, so use sync
-        auto& c = rdx.commandSync<std::string>(l);
-        // std::cout << c.cmd() << std::endl;
-        // std::cout << c.lastError() << std::endl;
-        // computing time vs comm time...
-        // for( auto& v : value)
-        //   rdx.command<std::string>({"SADD",key,v});
-        updates.push_back(std::pair<std::string,std::string>(key,"a"));
-      }
-      
       bool AddToHash(const std::string& key,
                      const std::vector<std::string>& value) override {
         bool is_ok = true;

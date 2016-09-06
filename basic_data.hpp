@@ -146,7 +146,7 @@ namespace configuration {
       MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
       
-      bool KeyExists(const std::string& key) const {
+      bool KeyExists(const std::string& key)  {
         return (container.find(key) != container.end());
       }
       
@@ -196,7 +196,7 @@ namespace configuration {
         return nelem;
       }
 
-      std::vector<std::string> ReturnValue(const std::string& key) const {
+      std::vector<std::string> ReturnValue(const std::string& key) {
         if( KeyExists(key) )
           return container.find(key)->second;
         else {

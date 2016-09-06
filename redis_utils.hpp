@@ -48,6 +48,10 @@ namespace configuration {
       //      std::cout << "Reply.size = " << out.size()  << std::endl;
       return true;
     }
+
+
+
+
     
   } // namespace utils
   

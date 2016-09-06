@@ -21,7 +21,7 @@ git submodule update
 ```
 Building the submodules is part of the standard build system.
 
-REDIS
+REDIS data manager
 -----
 
 Requires hiredis, libev for redox 

@@ -27,7 +27,9 @@ namespace configuration {
     {
       typedef RedisDataManager self_t;
 
-      RedisDataManager(const std::string& redis_server, const int& redis_port) : rdx(std::cout,redox::log::Level::Fatal) {
+      RedisDataManager(const std::string& redis_server,
+                       const int& redis_port,
+                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal), log(logger) {
         if( !rdx.connect(redis_server, redis_port) )
           throw std::runtime_error("Can't connect to REDIS server");
       };
@@ -50,44 +52,25 @@ namespace configuration {
       
       void Clear() { rdx.command<std::string>({"FLUSHALL"}); }
 
-      utils::typelist::KEYS_t Query(const std::string& key) { return ReturnValue(key); }
-      bool Update(const std::string& key, const std::string& value) {
-        if( !KeyExists(key) ) {
-          bool is_ok = AddToHash(key,value);
-          return (is_ok & UpdateParent(key) );
-        }
-        else {
-          updates.push_back(std::pair<std::string,std::string>(key,"u"));          
-          return UpdateHashValue(key,value);
-        }        
-      }
-
-      bool Delete(const std::string& key) {
-        if( !KeyExists(key) ) return false;
-        return RemoveKey(key);
-      }
-      
       redox::Redox& redox() { return rdx; } 
       
     private:
 
       redox::Redox rdx;
-      MockContainer container;
+      std::ostream& log;
+      //      MockContainer container;
       std::vector<std::pair<std::string,std::string> > updates;
 
-      bool KeyExists (const std::string& key) {
+      bool KeyExists (const std::string& key) override {
         std::string s="KEYS "+key;
         utils::typelist::KEYS_t result;
         utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result);
         return result.size()>0;
       }
 
-      bool IsSet(const std::string& key) { return container[key].size() > 1; }
-      
-      void NotifyKeyNew(const std::string& key) { }; // new key is added to the configuration
-      void NotifyValueUpdate(const std::string& key) { }; // the value of the key has been updated
 
-      void AddToKeyList(const MockContainer::key_type& key, const std::vector<std::string>& value) {
+      void AddToKeyList(const MockContainer::key_type& key,
+                        const std::vector<std::string>& value) override {
 
         std::vector<std::string> l={"SADD",key};
         l.insert(l.end(),value.begin(),value.end());
@@ -101,18 +84,19 @@ namespace configuration {
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
       }
       
-      bool AddToHash(const MockContainer::key_type& key, const std::vector<std::string>& value) {
+      bool AddToHash(const std::string& key,
+                     const std::vector<std::string>& value) override {
         bool is_ok = true;
         for(auto& v : value)
           is_ok &= AddToHash(key,v);
         return is_ok;
       }
-      bool AddToHash(const std::string& key, const std::string& value) {
+      bool AddToHash(const std::string& key, const std::string& value) override {
         updates.push_back(std::pair<std::string,std::string>(key,"a"));
         return rdx.set(key,value);
       }
       
-      bool RemoveFromParent(const std::string& parent,const std::string& name) {
+      bool RemoveFromParent(const std::string& parent,const std::string& name) override {
         bool is_ok = true;
         is_ok &= utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,std::string("SREM ")+parent+" "+name);
         // if parents gets empty, delete
@@ -123,7 +107,7 @@ namespace configuration {
         
         return is_ok;
       }
-      int RemoveChildren(const std::string& key) {
+      int RemoveChildren(const std::string& key) override {
         utils::typelist::KEYS_t children_list;
         std::string cmd="KEYS "+key+":*";
         utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,cmd,children_list);
@@ -132,7 +116,7 @@ namespace configuration {
         return children_list.size();
       }
 
-      int RemoveKey(const std::string& key) {
+      bool RemoveKey(const std::string& key) override {
         updates.push_back(std::pair<std::string,std::string>(key,"d"));   
         std::string key_type;
         utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
@@ -140,38 +124,34 @@ namespace configuration {
         
         if(key_type == "set") {
           // remove children
-          int nelem = RemoveChildren(key);
-          is_ok &= (nelem > 0 ? true : false);
+          int nelem;
+          utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+key,nelem);
+          is_ok &= ( (RemoveChildren(key)>0 && nelem >0) ? true : false);
         }
-        else
-          if(key_type != "string") {
-            throw std::runtime_error("Type "+key_type+" not supported");
-            return false;
-          }
         
         // remove from parent
         std::size_t found = key.find_last_of(":");
         // std::string parent_key=key.substr(0,found);
         // std::string parent_value=key.substr(found+1);
         is_ok &= RemoveFromParent(key.substr(0,found),key.substr(found+1));
-        is_ok &= utils::ExecRedisCmd<configuration::utils::typelist::DEL_t>(rdx,std::string("DEL ")+key);
+        is_ok &= utils::ExecRedisCmd<int>(rdx,std::string("DEL ")+key);
         return is_ok;
         
       }
 
       
-      bool UpdateHashValue(const std::string& key,const std::string& value) {
+      bool UpdateHashValue(const std::string& key,const std::string& value) override {
         std::string cmd = std::string("SET ")+key+" "+value;
         return utils::ExecRedisCmd<std::string>(rdx,cmd);
       }
 
 
-      bool AddToParent(const std::string& key,const std::string& value) {
+      bool AddToParent(const std::string& key,const std::string& value) override {
         std::string cmd=std::string("SADD ")+key+" "+value;
         return utils::ExecRedisCmd<int>(rdx,cmd);;
       }
 
-      bool UpdateParent(const std::string& key) {
+      bool UpdateParent(const std::string& key) override {
         bool is_ok = true;
         std::size_t found = key.find_last_of(":");
         std::string parent_key=key.substr(0,found);
@@ -186,10 +166,13 @@ namespace configuration {
       }
 
       
-      utils::typelist::LIST_t ReturnValue(const std::string& key) {
+      utils::typelist::LIST_t ReturnValue(const std::string& key) override {
         utils::typelist::LIST_t result;
-        if( !KeyExists(key) ) return result;
-
+        if( !KeyExists(key) ) {
+          log << "Key " << key << " doesn't exists\n";
+          return result;
+        }
+        
         std::string key_type;
         utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
 
@@ -204,17 +187,18 @@ namespace configuration {
             utils::ExecRedisCmd<utils::typelist::VALUE_t>(rdx,std::string("GET ")+key,tmp);
             result.push_back(tmp);
           }
-          else
-            throw std::runtime_error("Type "+key_type+" not supported");
-
+          else {
+            //            throw std::runtime_error("Type "+key_type+" not supported");
+            log << "Type "+key_type+" not supported";
+          }
+            
         return result;
       }
 
 
-      
       bool scan(rapidjson::Value::MemberIterator first,
                 rapidjson::Value::MemberIterator last,
-                std::string prefix="") {
+                std::string prefix="") override {
   
         bool is_ok = true;
         std::string separator="";
@@ -227,12 +211,8 @@ namespace configuration {
             std::string s = "SADD "+ prefix+separator+std::string(it->name.GetString())+std::string(" ");
             for( auto v = it->value.MemberBegin();
                  v != it->value.MemberEnd(); ++v)
-              s += v->name.GetString()+std::string(" ");
-
-            if( is_ok )
-              utils::ExecRedisCmd<utils::typelist::SADD_t>(rdx,s);
-            // else
-            //   std::cout << "exising key, not added" << std::endl;
+              is_ok &= utils::ExecRedisCmd<utils::typelist::SADD_t>(rdx,s+v->name.GetString());
+            
             is_ok &= scan(it->value.MemberBegin(),
                           it->value.MemberEnd(),
                           prefix+separator+std::string(it->name.GetString()));
@@ -242,8 +222,8 @@ namespace configuration {
             s+= it->value.GetString();
             if(is_ok)
               utils::ExecRedisCmd<utils::typelist::SET_t>(rdx,s);
-            // else
-            //   std::cout << "exising key, not added" << std::endl;
+            else
+              log << "Key " << std::string(it->value.GetString()) << " exists, not added\n";
 
           }
         }

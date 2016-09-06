@@ -165,15 +165,17 @@ TEST (DataManager, DeleteSet) {
   // test key existence
   int size = dm.Query("instrument1:sources").size();
   EXPECT_TRUE( size > 0 );
+
   // test delete success
   EXPECT_TRUE( dm.Delete("instrument1:sources") );
+
   // test missing key
   EXPECT_FALSE( dm.Query("instrument1:sources").size() > 0 );
   // test other keys not affected
   for (auto& key : dm.Query("instrument1") ) {
     EXPECT_TRUE( dm.Query("instrument1:"+key).size() > 0 );
   }
-  // test failure in deleting non-existing key
+  //  test failure in deleting non-existing key
   EXPECT_FALSE( dm.Delete("instrument1:sources") );
 
   // test deletion parent when empty
@@ -181,8 +183,6 @@ TEST (DataManager, DeleteSet) {
   EXPECT_TRUE( dm.Delete("instrument1:experiment:name") );
   EXPECT_FALSE( (dm.Query("instrument1:experiment").size() > 0 ) );
   
-  //   FCM c;
-//   EXPECT_TRUE( dm.Notify<FCM>(c) );
 }
 
 

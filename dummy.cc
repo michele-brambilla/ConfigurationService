@@ -26,7 +26,7 @@ struct typelist
 
 
 template<typename Output>
-bool ExecRedisCmd(redox::Redox& r, std::string& s) {
+bool ExecRedisCmd(redox::Redox& r,const std::string& s) {
   auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
   if( !c.ok() ) {
     std::cerr << c.lastError() << std::endl;
@@ -35,7 +35,7 @@ bool ExecRedisCmd(redox::Redox& r, std::string& s) {
   return true;
 }
 template<typename Output>
-bool ExecRedisCmd(redox::Redox& r, std::string& s, Output& out) {
+bool ExecRedisCmd(redox::Redox& r,const std::string& s, Output& out) {
   auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
   if( !c.ok() ) {
     std::cerr << c.lastError() << std::endl;
@@ -45,12 +45,32 @@ bool ExecRedisCmd(redox::Redox& r, std::string& s, Output& out) {
   return true;
 }
 
+typelist::KEYS_t ReturnValue(const std::string& key) {
+  typelist::KEYS_t result;
+  std::string s = {"SMEMBERS "};
+  s+=key;
+  // std::cout << "ExecRedisCmd<typelist::KEYS_t>(rdx,s,result) = " << ExecRedisCmd<typelist::KEYS_t>(rdx,s,result) << std::endl;
+  if( ExecRedisCmd<typelist::KEYS_t>(rdx,s,result) ) {
+    for (const std::string& r : result)
+      std::cout << r << "\t";
+  }
+  else {
+    typelist::GET_t r;
+    s="GET "+key;
+    //    std::cout << "ExecRedisCmd<typelist::GET_t>(rdx,s,result) = " << ExecRedisCmd<typelist::GET_t>(rdx,s,r) << std::endl;
+    if( !ExecRedisCmd<typelist::GET_t>(rdx,s,r) )
+      throw std::runtime_error("Wrong data type");
+    result.push_back(r);
+  }
+  return result;
+}
 
 bool KeyExists(const std::string& key) {
   std::string s="KEYS "+key;
   typelist::KEYS_t result;
-  std::cout << ExecRedisCmd<typelist::KEYS_t>(rdx,s,result) << std::endl;
-  std::cout << "size of result: " << result.size() << std::endl;
+  ExecRedisCmd<typelist::KEYS_t>(rdx,s,result);
+  // std::cout << ExecRedisCmd<typelist::KEYS_t>(rdx,s,result) << std::endl;
+  // std::cout << "size of result: " << result.size() << std::endl;
   return true;
 }
 
@@ -66,29 +86,29 @@ bool scan(rapidjson::Value::MemberIterator first,
   for( auto& it = first; it != last; ++it) {
     is_ok &= (!KeyExists(prefix+separator+std::string(it->name.GetString())) );
     if(it->value.IsObject()) {
-      std::string s = "SADD ";
-      s += prefix+separator+std::string(it->name.GetString())+std::string(" ");
+      std::string s = "SADD "+prefix+separator+std::string(it->name.GetString())+std::string(" ");
       for( auto v = it->value.MemberBegin();
-           v != it->value.MemberEnd(); ++v)
-        s += v->name.GetString()+std::string(" ");
-      //      std::cout << "\t" << s << std::endl;
-      // if( is_ok )
-      ExecRedisCmd<typelist::SADD_t>(rdx,s);
-      // else
-      //   std::cout << "exising key, not added" << std::endl;
-      prefix += separator+std::string(it->name.GetString());
-      is_ok &= scan(it->value.MemberBegin(),
-                    it->value.MemberEnd(),
-                    prefix);
+           v != it->value.MemberEnd(); ++v) {
+        auto k = s+v->name.GetString()+std::string(" ");
+        //      std::cout << "\t" << s << std::endl;
+        // if( is_ok )
+        ExecRedisCmd<typelist::SADD_t>(rdx,s);
+        // else
+        //   std::cout << "exising key, not added" << std::endl;
+        //        prefix += separator+std::string(it->name.GetString());
+        is_ok &= scan(it->value.MemberBegin(),
+                      it->value.MemberEnd(),
+                      prefix+separator+std::string(it->name.GetString()));
+      }
     }
     else {
       std::string s = "SET "+prefix+separator+std::string(it->name.GetString())+std::string(" ");
       s+= it->value.GetString();
       // if(is_ok)
       ExecRedisCmd<typelist::SET_t>(rdx,s);
-        //     else
-        // std::cout << "exising key, not added" << std::endl;
-
+      //     else
+      // std::cout << "exising key, not added" << std::endl;
+      
     }
   }
   return is_ok;
@@ -188,6 +208,20 @@ int main() {
     scan(t.MemberBegin(),t.MemberEnd());
   else
     throw std::runtime_error("Can't parse ../sample/example_instrument.js");
+
+  if( KeyExists("instrument1:sources:motor4")) {
+    auto r =  ReturnValue("instrument1:sources:motor4");
+    for( auto v : r )
+      std::cout << v << std::endl;
+  }
+
+  
+  // typelist::KEYS_t r = ReturnValue("instrument1:user:experiment:sources:motor1:type");
+  // std::cout << r.size() << std::endl;
+  // r = ReturnValue("instrument1:user:experiment:sources:motor1");
+  // r.pop_back();
+  // std::cout << r.size() << std::endl;
+
   
   return 0;
 }

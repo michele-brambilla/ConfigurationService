@@ -32,20 +32,16 @@ namespace configuration {
         if( t.HasParseError() ) { throw std::runtime_error("Error: invalid configuration"); }
         return scan(t.MemberBegin(),t.MemberEnd());
       }
-      
-      std::vector<std::string> Query(const std::string& key) const {
-        return ReturnValue(key);
-      }
+
+      std::vector<std::string> Query(const std::string& key) { return ReturnValue(key); }
       
       bool Update(const std::string& key, const std::string& value) {
         std::cout << "key " << key;
         if( !KeyExists(key) ) {
-          std::cout << " doesn't exists" << std::endl;
-          AddToHash(key,value);
-          return UpdateParent(key);
+          bool is_ok = AddToHash(key,value);
+          return (is_ok & UpdateParent(key) );
         }
         else {
-          std::cout << " exists" << std::endl;
           updates.push_back(std::pair<std::string,std::string>(key,"u"));          
           return UpdateHashValue(key,value);
         }        
@@ -57,27 +53,27 @@ namespace configuration {
           std::cerr << "Key " << key << " doesn't exists" << std::endl;
           return false;
         }
-        int deleted_keys = 0;
-        if( IsSet(key) ) {
+        // int deleted_keys = 0;
+        // if( IsSet(key) ) {
           
-          // split parents and key item
-          std::size_t found = key.find_last_of(":");
+        //   // split parents and key item
+        //   std::size_t found = key.find_last_of(":");
 
-          // // removes item from set
-          if ( !RemoveFromParent(key.substr(0,found),key.substr(found+1)) )
-            return false;
-          // remove key and children
-          int n=RemoveChildren(key);
-          if( n <= 0 ) return false;
+        //   // // removes item from set
+        //   if ( !RemoveFromParent(key.substr(0,found),key.substr(found+1)) )
+        //     return false;
+        //   // remove key and children
+        //   int n=RemoveChildren(key);
+        //   if( n <= 0 ) return false;
           
-          deleted_keys+=n;
-          return deleted_keys > 0;
-        }
-        else {
-          updates.push_back(std::pair<std::string,std::string>(key,"d"));
-          return RemoveKey(key)==1;
-        }
-        return false;
+        //   deleted_keys+=n;
+        //   return deleted_keys > 0;
+        // }
+        // else {
+        //   updates.push_back(std::pair<std::string,std::string>(key,"d"));
+        //   return RemoveKey(key)==1;
+        // }
+        return RemoveKey(key);
       }
 
       template<typename CommunicatorManager>
@@ -97,27 +93,31 @@ namespace configuration {
 
       std::vector<std::pair<std::string,std::string> > updates;
       
-      virtual bool KeyExists(const std::string& key) const { return false; }
+      virtual bool KeyExists(const std::string&) { return false; }
 
       virtual bool IsSet(const std::string&) { return 0; }
 
       virtual void NotifyKeyNew(const std::string&) { };
+      
       virtual void NotifyValueUpdate(const std::string&) { };
 
-      virtual void AddToKeyList(const MockContainer::key_type&, const MockContainer::value_type&) { }
+      virtual void AddToKeyList(const std::string&, const std::vector<std::string>&) { }
+
       virtual bool AddToHash(const MockContainer::key_type&, const MockContainer::value_type&) {return false; }
+
       virtual bool AddToHash(const std::string&, const std::string&) { return false; };
 
       virtual bool RemoveFromParent(const std::string&, const std::string&) { return false; }
 
-      virtual int RemoveKey(const std::string&) { return 0; }
+      virtual bool RemoveKey(const std::string&) { return false; }
 
       virtual int RemoveChildren(const std::string&) { return 0; }
 
-      virtual std::vector<std::string> ReturnValue(const std::string&) const {
+      virtual std::vector<std::string> ReturnValue(const std::string&) {
         return std::vector<std::string>{""};
       }
 
+      
       virtual bool UpdateHashValue(const std::string&,const std::string&) { return false; }
 
       virtual bool AddToParent(const std::string&,const std::string&) { return false; }
@@ -179,9 +179,9 @@ namespace configuration {
         }
         return false;
       }
-      int RemoveKey(const std::string& key) {
+      bool RemoveKey(const std::string& key) {
         updates.push_back(std::pair<std::string,std::string>(key,"d"));   
-        return container.erase(key);
+        return container.erase(key) > 0;
       }
       int RemoveChildren(const std::string& key) {
         int nelem = 0;

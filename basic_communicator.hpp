@@ -11,12 +11,11 @@ namespace configuration {
     struct Communicator {
 
       //////////////
-      /// Communicator::(key,status)
-      /// informs that key has changed its value according to status: 
+      /// Informs that key has changed its value according to status: 
       /// - u: value or content has been updated
       /// - a: key is a brand new key
       /// - d: the key has been deleted
-      virtual bool operator()(const std::string&,const std::string&) { return false; }
+      virtual bool Publish(const std::string&,const std::string&) { return false; }
 
       /////////////
       /// Sends all the messages stored since last notify

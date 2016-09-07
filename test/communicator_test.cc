@@ -24,7 +24,7 @@ TEST (CommunicatorManager, CommunicatorEmpty) {
 TEST (CommunicatorManager, AddMessage) {
   CM cm(redis_server,redis_port);
   EXPECT_EQ(cm.NumMessages(),0);
-  EXPECT_TRUE( cm("key","a") );
+  EXPECT_TRUE( cm.Publish("key","a") );
   EXPECT_EQ(cm.NumMessages(),1);
 }
 
@@ -34,7 +34,7 @@ TEST (CommunicatorManager, AddMessages) {
   EXPECT_EQ(cm.NumMessages(),0);
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i)
-    EXPECT_TRUE( cm(std::to_string(i),status[i%3]) );
+    EXPECT_TRUE( cm.Publish(std::to_string(i),status[i%3]) );
   EXPECT_EQ(cm.NumMessages(),num_test_msg);
 }
 
@@ -42,7 +42,7 @@ TEST (CommunicatorManager, Notify) {
   CM cm(redis_server,redis_port);
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i) {
-    cm(std::string("message:")+std::to_string(i),status[i%3]);
+    cm.Publish(std::string("message:")+std::to_string(i),status[i%3]);
   }
   EXPECT_TRUE( cm.Notify() );
   EXPECT_EQ(cm.NumMessages(),0);
@@ -54,25 +54,26 @@ TEST (CommunicatorManager, AutoNotify) {
   EXPECT_EQ(cm.NumMessages(),0);
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < 10*CM::MaxStoredMessages;++i) {
-    EXPECT_TRUE( cm(std::string("message:")+std::to_string(i),status[i%3]) );
+    EXPECT_TRUE( cm.Publish(std::string("message:")+std::to_string(i),status[i%3]) );
   }
   EXPECT_NE(cm.NumMessages(),10*CM::MaxStoredMessages);
 }
 
 
 TEST (CommunicatorManager, Subscribe) {
-  CM cm(redis_server,redis_port);
-  EXPECT_TRUE( cm.Subscribe("message:") );
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
+  CM publisher(redis_server,redis_port);
+  CM listener(redis_server,redis_port);
+  EXPECT_TRUE( listener.Subscribe("message:") );
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i) {
     std::cout << std::string("message:")+std::to_string(i) << std::endl;
-    cm(std::string("message:")+std::to_string(i),status[i%3]);
+    publisher.Publish(std::string("message:")+std::to_string(i),status[i%3]);
   }
+  publisher.Notify();
   
-  std::this_thread::sleep_for(std::chrono::seconds(60));
+  std::this_thread::sleep_for(std::chrono::seconds(1));
 
 }
 

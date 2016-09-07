@@ -8,6 +8,54 @@
 namespace configuration {
   namespace communicator {
 
+    ////////////////
+    // Base class for message receive callbacks
+    struct ReceivedMessageCb {
+      ReceivedMessageCb() : num_msg(0) {
+        f = [this](std::string const & x, std::string const & y) {
+          this->got_message(x, y);
+        };
+      };
+      
+      std::function<void(std::string const &, std::string const &)> f;
+      virtual void got_message(const std::string & t,const std::string & c)  {
+        std::cout << "method: "<< t << "\t" << c << std::endl;
+        std::cout << "message number: "<< num_msg << std::endl;
+        num_msg++;
+      }
+      int num_msg;
+    };
+    
+    ////////////////
+    // Base class for unsubscribe callbacks
+    struct UnsubscribeCb {
+      UnsubscribeCb() {
+        f = [this](std::string const & x) {
+          this->unsubscribed(x);
+        };
+      };      
+      std::function<void(std::string const &)> f;
+      virtual void unsubscribed(const std::string & t)  {
+        std::cout << "method: "<< t << std::endl;
+      }
+
+    };
+
+
+    struct SubscribeErrorCb {
+      SubscribeErrorCb() {
+        f = [this](std::string const & x, int const & y) {
+          this->got_error(x, y);
+        };
+      };
+      
+      std::function<void(std::string const &, int const &)> f;
+      virtual void got_error(const std::string & t,const int & v)  {
+        std::cout << "method: "<< t << "\t" << v << std::endl;
+      }
+    };
+
+    
     struct Communicator {
 
       //////////////

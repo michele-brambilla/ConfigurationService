@@ -16,7 +16,7 @@ namespace configuration {
 
     
     struct RedisCommunicator : public Communicator {
-      static const int MaxStoredMessages = 10000;
+      static int MaxStoredMessages;
       
       RedisCommunicator(const std::string& redis_server,
                         const int& redis_port,
@@ -146,7 +146,8 @@ namespace configuration {
       unsigned long int total_recv_messages = 0;
 
     };
-
+    int RedisCommunicator::MaxStoredMessages = 100;
+    
   }
 }
   

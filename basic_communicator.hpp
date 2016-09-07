@@ -22,8 +22,7 @@ namespace configuration {
       virtual bool Notify() { return false; }
 
       virtual bool Subscribe(const std::string&) { return false; }
-      virtual bool Subscribe(const std::string&, std::function< void(const std::string &) >) { return false; }
-
+      virtual bool Subscribe(const std::string&, std::function< void(const std::string &,const std::string &) >) { return false; }
 
     protected:
       std::map<std::string,std::string> updates;

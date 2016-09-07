@@ -61,10 +61,10 @@ namespace configuration {
       
 
       bool Subscribe(const std::string& key) override {
-        std::vector<std::string> result;
         bool is_ok = true;
 
         auto got_message = [&](const std::string& topic, const std::string& msg) {
+          total_recv_messages++;
           this->log << topic << ": " << msg << std::endl;
         };
         auto  subscribed = [&](const std::string& topic) {
@@ -77,15 +77,43 @@ namespace configuration {
           this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
           is_ok = false;
         };
-        
-        subscriber.psubscribe(key+"*", got_message, subscribed, unsubscribed, got_error);
 
+        if ( (key).find("*")!=std::string::npos)
+          subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
+        else
+          subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
+        
         return is_ok;
       }
 
+      bool Subscribe(const std::string& key,
+                     std::function<void(const std::string&,const std::string&)> f_got) override {
+
+        bool is_ok = true;
+
+        auto subscribed = [&](const std::string& topic) {
+          this->log << "> Subscribed to " << topic << std::endl;
+        };
+        auto unsubscribed = [&](const std::string& topic) {
+          this->log << "> Unsubscribed from " << topic << std::endl;
+        };
+        auto got_error = [&](const std::string& topic, const int& id_error) {
+          this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
+          is_ok = false;
+        };
+
+        if ( (key).find("*")!=std::string::npos)
+          subscriber.psubscribe(key, f_got, subscribed, unsubscribed, got_error);
+        else
+          subscriber.subscribe(key, f_got, subscribed, unsubscribed, got_error);
+        
+        return is_ok;
+      }
 
       
+      
       int NumMessages() const { return updates.size(); }
+      int NumRecvMessages() const { return total_recv_messages; }
       
     private:
       redox::Redox publisher;
@@ -93,8 +121,8 @@ namespace configuration {
 
       std::ostream& log;
       unsigned long int total_num_messages = 0;
+      unsigned long int total_recv_messages = 0;
 
-      
     };
 
   }

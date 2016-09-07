@@ -7,6 +7,25 @@ static const int redis_port=6379;
 static const int num_test_msg=10;
 
 
+void got_message(const std::string & t,const std::string & c)  {
+  std::cout << "Using function callback > "<< t << "\t" << c << std::endl;
+}
+
+struct DummyCb {
+  DummyCb() : num_msg(0) { };
+  void got_message(const std::string & t,const std::string & c) const {
+    std::cout << t << "\t" << c << std::endl;
+    // topic = t;
+    // key = k;
+    // num_msg++;
+  }
+  std::string topic;
+  std::string content;
+  int num_msg;
+};
+
+
+
 typedef configuration::communicator::RedisCommunicator CM;
 
 using namespace configuration::communicator;
@@ -60,20 +79,72 @@ TEST (CommunicatorManager, AutoNotify) {
 }
 
 
-TEST (CommunicatorManager, Subscribe) {
+TEST (CommunicatorManager, SubscribeSingleTopic) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
-  EXPECT_TRUE( listener.Subscribe("message:") );
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  EXPECT_TRUE( listener.Subscribe("message:1") );
+  // just ensure enough time to connect
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
   
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i) {
-    std::cout << std::string("message:")+std::to_string(i) << std::endl;
-    publisher.Publish(std::string("message:")+std::to_string(i),status[i%3]);
+    publisher.Publish(std::string("message:1"),status[i%3]);
+    publisher.Publish(std::string("message:2"),status[i%3]);
+    publisher.Publish(std::string("message:3"),status[i%3]);
+    publisher.Notify();
   }
-  publisher.Notify();
-  
   std::this_thread::sleep_for(std::chrono::seconds(1));
+  // after 1 sec you can be confident that all messages arrived
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  EXPECT_EQ(listener.NumRecvMessages(),num_test_msg);
+
+}
+
+
+
+TEST (CommunicatorManager, SubscribeMultipleTopics) {
+  CM publisher(redis_server,redis_port);
+  CM listener(redis_server,redis_port);
+  EXPECT_TRUE( listener.Subscribe("message:*") );
+  // just ensure enough time to connect
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  
+  std::vector<std::string> status = {"a","u","d"};
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),status[i%3]);
+    publisher.Publish(std::string("message:2"),status[i%3]);
+    publisher.Publish(std::string("message:3"),status[i%3]);
+    publisher.Notify();
+  }
+  // after 1 sec you can be confident that all messages arrived
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  EXPECT_EQ(listener.NumRecvMessages(),num_test_msg*3);
+  
+}
+
+
+
+TEST (CommunicatorManager, SubscribeFunctionCallback) {
+  CM publisher(redis_server,redis_port);
+  CM listener(redis_server,redis_port);
+
+  DummyCb got_cb;
+  
+  EXPECT_TRUE( listener.Subscribe("message:1",got_message) );
+  
+  // just ensure enough time to connect
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  std::vector<std::string> status = {"a","u","d"};
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),status[i%3]);
+    publisher.Publish(std::string("message:2"),status[i%3]);
+    publisher.Publish(std::string("message:3"),status[i%3]);
+    publisher.Notify();
+  }
+  // after 1 sec you can be confident that all messages arrived
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  // EXPECT_EQ(listener.NumRecvMessages(),num_test_msg);
 
 }
 

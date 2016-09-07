@@ -16,7 +16,7 @@ namespace configuration {
 
     
     struct RedisCommunicator : public Communicator {
-      static const int MaxStoredMessages = 10000;
+      static int MaxStoredMessages;
       
       RedisCommunicator(const std::string& redis_server,
                         const int& redis_port,
@@ -117,8 +117,6 @@ namespace configuration {
                      std::function<void(const std::string&,const int&)> got_error
                      ) override {
 
-        bool is_ok = true;
-
         auto subscribed = [&](const std::string& topic) {
           this->log << "> Subscribed to " << topic << std::endl;
         };
@@ -127,12 +125,46 @@ namespace configuration {
           subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         else
           subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
+
+        std::set<std::string> topic_list = subscriber.subscribedTopics();	
+        if( topic_list.find(key) == topic_list.end() )
+          return false;
         
-        return is_ok;
+        return true;
       }
 
+      bool Unsubscribe(const std::string& key) override {
+        bool is_ok;
+        auto got_error = [&](const std::string& topic, const int& id_error) {
+          this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
+          is_ok = false;
+        };
+        
+        if ( (key).find("*")!=std::string::npos)
+          subscriber.punsubscribe(key,got_error);
+        else
+          subscriber.unsubscribe(key,got_error);
+
+        if( subscriber.subscribedTopics().find(key) != subscriber.subscribedTopics().end() )
+          return false;
+
+        return is_ok;
+      }
       
-      
+      bool Unsubscribe(const std::string& key,
+                       std::function<void(const std::string&,const int&)> got_error
+                       ) override {
+        
+        if ( (key).find("*")!=std::string::npos)
+          subscriber.punsubscribe(key,got_error);
+        else
+          subscriber.unsubscribe(key,got_error);
+
+        if( subscriber.subscribedTopics().find(key) != subscriber.subscribedTopics().end() )
+          return false;
+
+        return true;
+      }
       
       int NumMessages() const { return updates.size(); }
       int NumRecvMessages() const { return total_recv_messages; }
@@ -146,7 +178,8 @@ namespace configuration {
       unsigned long int total_recv_messages = 0;
 
     };
-
+    int RedisCommunicator::MaxStoredMessages = 100;
+    
   }
 }
   

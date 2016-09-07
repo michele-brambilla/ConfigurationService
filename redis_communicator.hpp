@@ -87,7 +87,8 @@ namespace configuration {
       }
 
       bool Subscribe(const std::string& key,
-                     std::function<void(const std::string&,const std::string&)> f_got) override {
+                     std::function<void(const std::string&,const std::string&)> got_message
+                     ) override {
 
         bool is_ok = true;
 
@@ -103,13 +104,34 @@ namespace configuration {
         };
 
         if ( (key).find("*")!=std::string::npos)
-          subscriber.psubscribe(key, f_got, subscribed, unsubscribed, got_error);
+          subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         else
-          subscriber.subscribe(key, f_got, subscribed, unsubscribed, got_error);
+          subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
         
         return is_ok;
       }
 
+      bool Subscribe(const std::string& key,
+                     std::function<void(const std::string&,const std::string&)> got_message,
+                     std::function<void(const std::string&)> unsubscribed,
+                     std::function<void(const std::string&,const int&)> got_error
+                     ) override {
+
+        bool is_ok = true;
+
+        auto subscribed = [&](const std::string& topic) {
+          this->log << "> Subscribed to " << topic << std::endl;
+        };
+
+        if ( (key).find("*")!=std::string::npos)
+          subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
+        else
+          subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
+        
+        return is_ok;
+      }
+
+      
       
       
       int NumMessages() const { return updates.size(); }
@@ -118,7 +140,7 @@ namespace configuration {
     private:
       redox::Redox publisher;
       redox::Subscriber subscriber;
-
+      
       std::ostream& log;
       unsigned long int total_num_messages = 0;
       unsigned long int total_recv_messages = 0;

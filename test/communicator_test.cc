@@ -10,11 +10,23 @@ static const int num_test_msg=10;
 void got_message(const std::string & t,const std::string & c)  {
   std::cout << "Using function callback > "<< t << "\t" << c << std::endl;
 }
+void got_error(const std::string & t,const int & v)  {
+  std::cout << "Using function callback > "<< t << "\t->\t" << v << std::endl;
+}
+void unsubscribe(const std::string & t)  {
+  std::cout << "Using function callback < "<< t << std::endl;
+}
 
 struct DummyCb {
-  DummyCb() : num_msg(0) { };
-  void got_message(const std::string & t,const std::string & c) const {
-    std::cout << t << "\t" << c << std::endl;
+  DummyCb() : num_msg(0) {
+    f = [this](std::string const & x, std::string const & y) {
+      this->got_message(x, y);
+    };
+  };
+
+  std::function<void(std::string const &, std::string const &)> f;
+  void got_message(const std::string & t,const std::string & c)  {
+    std::cout << "method: "<< t << "\t" << c << std::endl;
     // topic = t;
     // key = k;
     // num_msg++;
@@ -124,12 +136,10 @@ TEST (CommunicatorManager, SubscribeMultipleTopics) {
 
 
 
-TEST (CommunicatorManager, SubscribeFunctionCallback) {
+TEST (CommunicatorManager, SubscribeFunctionGotCallback) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
 
-  DummyCb got_cb;
-  
   EXPECT_TRUE( listener.Subscribe("message:1",got_message) );
   
   // just ensure enough time to connect
@@ -147,6 +157,66 @@ TEST (CommunicatorManager, SubscribeFunctionCallback) {
   // EXPECT_EQ(listener.NumRecvMessages(),num_test_msg);
 
 }
+
+TEST (CommunicatorManager, SubscribeFunctionCallbacks) {
+  CM publisher(redis_server,redis_port);
+  CM listener(redis_server,redis_port);
+
+  EXPECT_TRUE( listener.Subscribe("message:1",got_message,unsubscribe,got_error) );
+  
+  // just ensure enough time to connect
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  std::vector<std::string> status = {"a","u","d"};
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),status[i%3]);
+    publisher.Publish(std::string("message:2"),status[i%3]);
+    publisher.Publish(std::string("message:3"),status[i%3]);
+    publisher.Notify();
+  }
+  // after 1 sec you can be confident that all messages arrived
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
+}
+
+
+
+TEST (CommunicatorManager, SubscribeMemberGotCallback) {
+  CM publisher(redis_server,redis_port);
+  CM listener(redis_server,redis_port);
+
+  DummyCb got_cb;
+
+
+
+  std::function<void(DummyCb&, const std::string&, const std::string&)> foo = &DummyCb::got_message;
+  auto foo1  = std::bind(&DummyCb::got_message,foo,std::placeholders::_1);
+
+  //  auto foo1 = std::bind(&DummyCb::got_message,got_cb,std::placeholders::_1);
+  EXPECT_TRUE( listener.Subscribe("message:1",got_cb.f) );
+  
+  // // just ensure enough time to connect
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  std::vector<std::string> status = {"a","u","d"};
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),status[i%3]);
+    publisher.Publish(std::string("message:2"),status[i%3]);
+    publisher.Publish(std::string("message:3"),status[i%3]);
+    publisher.Notify();
+  }
+  // after 1 sec you can be confident that all messages arrived
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  // // EXPECT_EQ(listener.NumRecvMessages(),num_test_msg);
+
+
+  // std::function<void(const std::string&, const std::string&)> c = std::mem_fn(&DummyCb::got_message);
+  // c(got_cb,"a","b");
+
+  
+  
+}
+
 
 
 

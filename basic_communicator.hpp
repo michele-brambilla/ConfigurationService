@@ -22,7 +22,18 @@ namespace configuration {
       virtual bool Notify() { return false; }
 
       virtual bool Subscribe(const std::string&) { return false; }
-      virtual bool Subscribe(const std::string&, std::function< void(const std::string &,const std::string &) >) { return false; }
+
+      // callback on message received
+      virtual bool Subscribe(const std::string&,
+                             std::function< void(const std::string &,const std::string &) >
+                             ) { return false; }
+
+      // callback on message receive, unsubscription, subscription error
+      virtual bool Subscribe(const std::string&,
+                             std::function< void(const std::string &,const std::string &) >,
+                             std::function< void(const std::string & ) >,
+                             std::function< void(const std::string &,const int &) >
+                             ) { return false; }
 
     protected:
       std::map<std::string,std::string> updates;

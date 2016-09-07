@@ -219,14 +219,12 @@ TEST (CommunicatorManager, SubscribeMembersCallback) {
 
 
 
-
 TEST (CommunicatorManager, SubscribeMember) {
+
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
 
-  configuration::communicator::ReceivedMessageCb got_cb;
-
-  listener.Subscribe("message:1",got_cb.f) ;
+  listener.Subscribe("message:1") ;
   
   // // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -240,7 +238,6 @@ TEST (CommunicatorManager, SubscribeMember) {
   }
   // after 1 sec you can be confident that all messages arrived
   std::this_thread::sleep_for(std::chrono::seconds(1));
-
   EXPECT_TRUE( listener.Unsubscribe("message:1") );
     
 }

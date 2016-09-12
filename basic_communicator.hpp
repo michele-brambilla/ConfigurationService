@@ -4,6 +4,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <functional>
+#include <thread>
 
 namespace configuration {
   namespace communicator {

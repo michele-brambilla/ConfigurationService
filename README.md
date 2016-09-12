@@ -8,7 +8,7 @@ Actions available:
     * SubscribeToKey
     * GetKeyValue
     * UpdateKeyValue
-    
+
 Install
 -----
 Some libraries are submodules:
@@ -23,10 +23,10 @@ Building the submodules is part of the standard build system.
 Building system uses cmake, no particular options required
 
 
-REDIS 
+REDIS
 -----
 
-Requires hiredis, libev for redox 
+Requires hiredis, libev for redox
 ```
 yum install hiredis libev
 ```
@@ -34,21 +34,24 @@ yum install hiredis libev
 Communicator
 ------------
 
-Base classes contained in ``basic_communicator.hpp". 
+Base classes contained in ``basic_communicator.hpp".
 Actions available
     * Publish (topic,status)
     * Notify
-    * Subscribe (topic) : arguments can be a string (topic), string +
-      std::function< void(const std::string &,const std::string &) > topic +
-      callback on message received, string + std::function< void(const
-      std::string &,const std::string &) >+std::function< void(const std::string
+    * Subscribe (topic) : arguments can be a
+      - string: topic
+      - string + std::function< void(const std::string &,const std::string &) >: topic +
+      callback on message received
+      > string + std::function< void(const std::string &,const std::string &) >+std::function< void(const std::string
       &,const std::string &) >+std::function< void(const std::string &,const
-      std::string &) > topic+callback on message+callback on subscribe+callback
+      std::string &) >: topic+callback on message+callback on subscribe+callback
       on error
-    * Unsubscribe:  arguments can be a string (topic), string +
-      std::function< void(const std::string &,const std::string &) > topic +
+    * Unsubscribe:  arguments can be a
+      - string: topic
+      - string +
+      std::function< void(const std::string &,const std::string &) >: topic +
       callback on error
-    
+
 
 Testing
 ------

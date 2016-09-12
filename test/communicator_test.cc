@@ -26,6 +26,7 @@ using namespace configuration::communicator;
 
 TEST (CommunicatorManager, CreateCommunicator) {
   CM cm(redis_server,redis_port);
+  cm.keep_counting = false;
 }
 
 TEST (CommunicatorManager, CommunicatorEmpty) {
@@ -170,6 +171,9 @@ TEST (CommunicatorManager, SubscribeMemberGotCallback) {
   configuration::communicator::ReceivedMessageCb got_cb;
 
   EXPECT_TRUE( listener.Subscribe("message:1",got_cb.f) );
+
+  auto f1 = std::bind(&configuration::communicator::ReceivedMessageCb::got_message, &got_cb, std::placeholders::_1, std::placeholders::_2);
+  EXPECT_TRUE( listener.Subscribe("message:1", f1) );
   
   // // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -219,23 +223,25 @@ TEST (CommunicatorManager, SubscribeMembersCallback) {
 
 
 
-TEST (CommunicatorManager, SubscribeMember) {
+TEST (CommunicatorManager, UnsubscribeMember) {
 
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
 
   listener.Subscribe("message:1") ;
+  listener.Subscribe("message:2") ;
+  listener.Subscribe("message:3") ;
   
   // // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   std::vector<std::string> status = {"a","u","d"};
-  for(int i = 0; i < num_test_msg;++i) {
-    publisher.Publish(std::string("message:1"),status[i%3]);
-    publisher.Publish(std::string("message:2"),status[i%3]);
-    publisher.Publish(std::string("message:3"),status[i%3]);
-    publisher.Notify();
-  }
+  // for(int i = 0; i < num_test_msg;++i) {
+  //   publisher.Publish(std::string("message:1"),status[i%3]);
+  //   publisher.Publish(std::string("message:2"),status[i%3]);
+  //   publisher.Publish(std::string("message:3"),status[i%3]);
+  //   publisher.Notify();
+  // }
   // after 1 sec you can be confident that all messages arrived
   std::this_thread::sleep_for(std::chrono::seconds(1));
   EXPECT_TRUE( listener.Unsubscribe("message:1") );
@@ -245,32 +251,39 @@ TEST (CommunicatorManager, SubscribeMember) {
 
 
 
-TEST (CommunicatorManager, UnsubscribeMembers) {
-  CM publisher(redis_server,redis_port);
-  CM listener(redis_server,redis_port);
+// TEST (CommunicatorManager, UnsubscribeMembers) {
+//   CM publisher(redis_server,redis_port);
+//   CM listener(redis_server,redis_port);
 
-  configuration::communicator::ReceivedMessageCb got_cb;
-  configuration::communicator::UnsubscribeCb uns_cb;
-  configuration::communicator::SubscribeErrorCb err_cb;
+//   configuration::communicator::ReceivedMessageCb got_cb;
+//   configuration::communicator::UnsubscribeCb uns_cb;
+//   configuration::communicator::SubscribeErrorCb err_cb;
 
-  listener.Subscribe("message:1",got_cb.f,uns_cb.f,err_cb.f);
+//   listener.Subscribe("message:*",got_cb.f,uns_cb.f,err_cb.f);
   
-  // // just ensure enough time to connect
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//   // // just ensure enough time to connect
+//   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  std::vector<std::string> status = {"a","u","d"};
-  for(int i = 0; i < num_test_msg;++i) {
-    publisher.Publish(std::string("message:1"),status[i%3]);
-    publisher.Publish(std::string("message:2"),status[i%3]);
-    publisher.Publish(std::string("message:3"),status[i%3]);
-    publisher.Notify();
-  }
-  // after 1 sec you can be confident that all messages arrived
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+//   std::vector<std::string> status = {"a","u","d"};
+//   for(int i = 0; i < num_test_msg;++i) {
+//     publisher.Publish(std::string("message:1")+std::to_string(i),status[i%3]);
+//     publisher.Publish(std::string("message:1")+std::to_string(i),status[i%3]);
+//     publisher.Publish(std::string("message:2")+std::to_string(i),status[i%3]);
+//     publisher.Notify();
+//   }
+//   // after 1 sec you can be confident that all messages arrived
+//   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  EXPECT_TRUE( listener.Unsubscribe("message:*",err_cb.f) );
+//   for( auto s : listener.ListTopics() )
+//     std::cout << s << std::endl;
   
-}
+//   std::this_thread::sleep_for(std::chrono::seconds(1));
+//   EXPECT_TRUE( listener.Unsubscribe("message:*",err_cb.f) );
+
+//   for( auto s : listener.ListTopics() )
+//     std::cout << s << std::endl;
+
+// }
 
 
 

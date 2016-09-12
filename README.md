@@ -20,7 +20,9 @@ git submodule init
 git submodule update
 ```
 Building the submodules is part of the standard build system.
-Building system uses cmake, no particular options required
+Building system uses cmake, no particular options required. Caveat: the code makes use of c++11 standard. Works with gcc >= 4.8 and clang >= 3.5. So far it failed with gcc 4.7.
+
+For testing purposes Googletest is required.
 
 
 REDIS
@@ -28,8 +30,20 @@ REDIS
 
 Requires hiredis, libev for redox
 ```
-yum install hiredis libev
+yum install hiredis-devel libev-devel
 ```
+Package hiredis can be missing on the standard repository. As a workaround, dowload it from pkg servers:
+```
+http://dl.fedoraproject.org/pub/epel/7/x86_64/h/hiredis-0.12.1-1.el7.x86_64.rpm
+http://dl.fedoraproject.org/pub/epel/7/x86_64/h/hiredis-devel-0.12.1-1.el7.x86_64.rpm
+```
+and install
+```
+rpm -i hiredis-0.12.1-1.el7.x86_64.rpm
+rpm -i hiredis-devel-0.12.1-1.el7.x86_64.rpm
+```
+(this worked for me on the vagrant machine)
+
 
 Communicator
 ------------

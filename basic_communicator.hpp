@@ -80,8 +80,8 @@ namespace configuration {
       // callback on message receive, unsubscription, subscription error
       virtual bool Subscribe(const std::string&,
                              std::function< void(const std::string &,const std::string &) >,
-                             std::function< void(const std::string & ) >,
-                             std::function< void(const std::string &,const int &) >
+                             std::function< void(const std::string &,const int &) >,
+                             std::function< void(const std::string & ) >
                              ) { return false; }
 
       virtual bool Unsubscribe(const std::string&) { return false; }

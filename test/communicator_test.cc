@@ -6,22 +6,20 @@ static const std::string redis_server="192.168.10.11";
 static const int redis_port=6379;
 static const int num_test_msg=10;
 
-
+int count_test_msg;
 void got_message(const std::string & t,const std::string & c)  {
-  std::cout << "Using function callback > "<< t << "\t" << c << std::endl;
+  std::cerr << "Using function callback > "<< t << "\t" << c << std::endl;
+  std::cerr << "Message number > "<< "\t" << count_test_msg << std::endl;
+  count_test_msg++;
 }
 void got_error(const std::string & t,const int & v)  {
-  std::cout << "Using function callback > "<< t << "\t->\t" << v << std::endl;
+  std::cerr << "Error function callback: > "<< t << "\t->\t" << v << std::endl;
 }
 void unsubscribe(const std::string & t)  {
-  std::cout << "Using function callback < "<< t << std::endl;
+  std::cerr << "Unsubscribe function callback < "<< t << std::endl;
 }
 
-
-
-
 typedef configuration::communicator::RedisCommunicator CM;
-
 using namespace configuration::communicator;
 
 TEST (CommunicatorManager, CreateCommunicator) {
@@ -34,14 +32,12 @@ TEST (CommunicatorManager, CommunicatorEmpty) {
   EXPECT_EQ(cm.NumMessages(),0);
 }
 
-
 TEST (CommunicatorManager, AddMessage) {
   CM cm(redis_server,redis_port);
   EXPECT_EQ(cm.NumMessages(),0);
   EXPECT_TRUE( cm.Publish("key","a") );
   EXPECT_EQ(cm.NumMessages(),1);
 }
-
 
 TEST (CommunicatorManager, AddMessages) {
   CM cm(redis_server,redis_port);
@@ -62,7 +58,6 @@ TEST (CommunicatorManager, Notify) {
   EXPECT_EQ(cm.NumMessages(),0);
 }
 
-
 TEST (CommunicatorManager, AutoNotify) {
   CM cm(redis_server,redis_port);
   EXPECT_EQ(cm.NumMessages(),0);
@@ -73,13 +68,12 @@ TEST (CommunicatorManager, AutoNotify) {
   EXPECT_NE(cm.NumMessages(),10*CM::MaxStoredMessages);
 }
 
-
 TEST (CommunicatorManager, SubscribeSingleTopic) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
   EXPECT_TRUE( listener.Subscribe("message:1") );
   // just ensure enough time to connect
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  std::this_thread::sleep_for(std::chrono::milliseconds(1));
   
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i) {
@@ -95,14 +89,12 @@ TEST (CommunicatorManager, SubscribeSingleTopic) {
 
 }
 
-
-
 TEST (CommunicatorManager, SubscribeMultipleTopics) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
   EXPECT_TRUE( listener.Subscribe("message:*") );
   // just ensure enough time to connect
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  std::this_thread::sleep_for(std::chrono::milliseconds(1));
   
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i) {
@@ -117,16 +109,15 @@ TEST (CommunicatorManager, SubscribeMultipleTopics) {
   
 }
 
-
-
 TEST (CommunicatorManager, SubscribeFunctionGotCallback) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
 
+  count_test_msg=0;
   EXPECT_TRUE( listener.Subscribe("message:1",got_message) );
   
   // just ensure enough time to connect
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  std::this_thread::sleep_for(std::chrono::seconds(1));
 
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i) {
@@ -137,7 +128,7 @@ TEST (CommunicatorManager, SubscribeFunctionGotCallback) {
   }
   // after 1 sec you can be confident that all messages arrived
   std::this_thread::sleep_for(std::chrono::seconds(1));
-  // EXPECT_EQ(listener.NumRecvMessages(),num_test_msg);
+  EXPECT_EQ(count_test_msg,num_test_msg);
 
 }
 
@@ -145,7 +136,8 @@ TEST (CommunicatorManager, SubscribeFunctionCallbacks) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
 
-  EXPECT_TRUE( listener.Subscribe("message:1",got_message,unsubscribe,got_error) );
+  count_test_msg=0;
+  EXPECT_TRUE(listener.Subscribe("message:1",got_message,got_error,unsubscribe) );
   
   // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -157,12 +149,12 @@ TEST (CommunicatorManager, SubscribeFunctionCallbacks) {
     publisher.Publish(std::string("message:3"),status[i%3]);
     publisher.Notify();
   }
+
   // after 1 sec you can be confident that all messages arrived
   std::this_thread::sleep_for(std::chrono::seconds(1));
+  EXPECT_EQ(num_test_msg,count_test_msg);
 
 }
-
-
 
 TEST (CommunicatorManager, SubscribeMemberGotCallback) {
   CM publisher(redis_server,redis_port);
@@ -191,9 +183,6 @@ TEST (CommunicatorManager, SubscribeMemberGotCallback) {
   
 }
 
-
-
-
 TEST (CommunicatorManager, SubscribeMembersCallback) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);
@@ -202,7 +191,7 @@ TEST (CommunicatorManager, SubscribeMembersCallback) {
   configuration::communicator::UnsubscribeCb uns_cb;
   configuration::communicator::SubscribeErrorCb err_cb;
 
-  EXPECT_TRUE( listener.Subscribe("message:1",got_cb.f,uns_cb.f,err_cb.f) );
+  EXPECT_TRUE( listener.Subscribe("message:1",got_cb.f,err_cb.f,uns_cb.f) );
   
   // // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -219,9 +208,6 @@ TEST (CommunicatorManager, SubscribeMembersCallback) {
   EXPECT_EQ(got_cb.num_msg,num_test_msg);
   
 }
-
-
-
 
 TEST (CommunicatorManager, UnsubscribeMember) {
 
@@ -248,9 +234,8 @@ TEST (CommunicatorManager, UnsubscribeMember) {
     
 }
 
-
-
-
+//////////////////
+// FIXME
 // TEST (CommunicatorManager, UnsubscribeMembers) {
 //   CM publisher(redis_server,redis_port);
 //   CM listener(redis_server,redis_port);
@@ -259,7 +244,7 @@ TEST (CommunicatorManager, UnsubscribeMember) {
 //   configuration::communicator::UnsubscribeCb uns_cb;
 //   configuration::communicator::SubscribeErrorCb err_cb;
 
-//   listener.Subscribe("message:*",got_cb.f,uns_cb.f,err_cb.f);
+//   listener.Subscribe("message:*",got_cb.f,err_cb.f,uns_cb.f);
   
 //   // // just ensure enough time to connect
 //   std::this_thread::sleep_for(std::chrono::milliseconds(10));

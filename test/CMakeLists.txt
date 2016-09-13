@@ -7,23 +7,27 @@ include_directories (
 add_executable (communicator_test communicator_test.cc) 
 add_executable (data_test data_manager_test.cc) 
 
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIR})
+#find_library(GTEST_LIBRARY gtest /usr/lib64)
+#link_directories(${GTEST_ROOT}/lib64)
+
+
 #target_link_libraries( configuration_test
 ##  ${CMAKE_CURRENT_SOURCE_DIR}/../build/libprova.dylib
 #  ${GTEST_LIB}libgtest.a
 #  ${GTEST_LIB}libgtest_main.a)
+
 target_link_libraries( communicator_test
-  ${GTEST_LIB}libgtest.a
-  ${GTEST_LIB}libgtest_main.a
-  redox)
+		       ${GTEST_BOTH_LIBRARIES}
+		       redox)
 
 target_link_libraries( data_test
-#  ${CMAKE_CURRENT_SOURCE_DIR}/../build/libprova.dylib
-  ${GTEST_LIB}libgtest.a
-  ${GTEST_LIB}libgtest_main.a
-  redox)
+		       ${GTEST_BOTH_LIBRARIES}
+		       redox)
 
 
-enable_testing()
+#enable_testing()
 
 add_test(NAME communication_test COMMAND $<TARGET_FILE:communicator_test> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 add_test(NAME data_test COMMAND $<TARGET_FILE:data_test> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})

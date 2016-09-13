@@ -1,25 +1,20 @@
 #include <gtest/gtest.h>
-
+#include <algorithm>
 #include <data.hpp>
-#include <communication.hpp>
+#include <redis_communicator.hpp>
 
 
 const char* instrument_file = "../sample/example_instrument.js";
 
-std::ifstream open_config_file(const char* s) {
+std::string read_config_file(const char* s) {
   std::ifstream in;
+  in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
   try {
     in.open(s);
-    in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
   }
   catch (std::ifstream::failure e) {
     std::cout << "Exception opening/reading file: " << e.what() << std::endl;
   }
-  return in;
-}
-
-std::string read_config_file(const char* s) {
-  std::ifstream in = open_config_file(s);
   std::string config,buf;
   while(!in.eof()) {
      std::getline(in, buf,'\t');
@@ -34,7 +29,7 @@ static const int redis_port=6379;
 // typedef configuration::data::MockDataManager DM;
 
 typedef configuration::data::RedisDataManager DM;
-typedef configuration::communicator::FileCommunicator FCM;
+typedef configuration::communicator::RedisCommunicator FCM;
 
 
 using namespace configuration::data;
@@ -58,7 +53,6 @@ TEST (DataManager, AddNewConfig) {
   EXPECT_FALSE( dm.AddConfig( read_config_file("../sample/example_instrument.js") ) );
   EXPECT_TRUE( dm.AddConfig( read_config_file("../sample/example_instrument2.js") ) );
 }
-
 
 TEST (DataManager, QueryHash) {
   DM dm(redis_server,redis_port);
@@ -91,12 +85,21 @@ TEST (DataManager, QuerySet) {
   EXPECT_TRUE( content.size() != 0  );
   // test set length and content
   EXPECT_EQ( content.size(), expect_success.size() );
+
+  // for( int i=0;i<expect_success.size();++i)
+  //   EXPECT_TRUE( std::any_of(content.begin(), content.end(), [&](std::string s){return s==expect_success[i];}) );
   for( auto& s : expect_success)
-    EXPECT_TRUE( std::find(content.begin(), content.end(), s) != content.end() );
+    EXPECT_TRUE( std::any_of(content.begin(), content.end(), [&](std::string c){return c==s;}) );
+  //      EXPECT_TRUE( std::find(content.begin(), content.end(), s) != content.end() );   // --> broken on gcc-4.8
+
   EXPECT_FALSE( content.size() == expect_failure.size() );
   bool is_true = true;
   for( auto& s : expect_failure)
-    is_true &= ( std::find(content.begin(), content.end(), s) != content.end() );
+    is_true &= std::any_of(content.begin(), content.end(), [&](std::string c){return c==s;});
+
+  
+  //    is_true &= ( std::find(content.begin(), content.end(), s) != content.end() ); // --> broken on gcc-4.8
+
   EXPECT_FALSE( is_true);
 }
 

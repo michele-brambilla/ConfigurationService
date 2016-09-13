@@ -118,20 +118,16 @@ bool scan(rapidjson::Value::MemberIterator first,
 
 const char* instrument_file = "../sample/example_instrument.js";
 
-std::ifstream open_config_file(const char* s) {
+std::string read_config_file(const char* s) {
   std::ifstream in;
+  in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
   try {
     in.open(s);
-    in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
   }
   catch (std::ifstream::failure e) {
     std::cout << "Exception opening/reading file: " << e.what() << std::endl;
   }
-  return in;
-}
 
-std::string read_config_file(const char* s) {
-  std::ifstream in = open_config_file(s);
   std::string config,buf;
   while(!in.eof()) {
      std::getline(in, buf,'\t');

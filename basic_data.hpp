@@ -88,7 +88,8 @@ namespace configuration {
       bool IsValidString(std::string s) {
         return !rapidjson::Document().Parse(s.c_str()).HasParseError();
       }
-      
+
+      virtual void Clear() { }
     private:
 
       std::vector<std::pair<std::string,std::string> > updates;
@@ -138,7 +139,7 @@ namespace configuration {
     {
       typedef  MockDataManager self_t;
 
-      MockDataManager() { };
+      MockDataManager(const std::string&, const int&) { };
       void Dump(std::ostream& os=std::cout) { os << container << std::endl; }
       
     private:
@@ -170,8 +171,8 @@ namespace configuration {
         return true;
       }
 
-      bool RemoveFromParent(const std::string& key,const std::string& value) {
-        MockContainer::value_type::iterator it = std::find(container[key].begin(),container[key].end(),value);
+      bool RemoveFromParent(const std::string& key,const std::string value) {
+	MockContainer::value_type::iterator it = std::find(container[key].begin(),container[key].end(),value);
         if( it != container[key].end()) {
           updates.push_back(std::pair<std::string,std::string>(key,"u"));
           container[key].erase(it);

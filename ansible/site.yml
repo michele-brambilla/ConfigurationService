@@ -1,0 +1,29 @@
+---
+- hosts: redis_server
+  tasks:
+  # Variable setup.
+    - name: Include variables
+      include_vars: defaults/main.yml
+ 
+    - debug: msg="test variable = {{ redis_port }}"
+    
+  # Setup/install tasks.
+    - name: Ensure redis is installed.
+      become: yes 
+      yum:
+        name: redis
+        state: installed
+        enablerepo : epel
+
+    - name: Configure redis
+      become: yes
+      template:
+        src=redis.conf.j2
+        dest="{{ redis_conf_path }}"
+        mode=0644
+      notify: restart redis
+        
+    - name: Ensure redis is running and enabled on boot.
+      become: yes
+      service: "name={{ redis_daemon }} state=started enabled=yes"
+

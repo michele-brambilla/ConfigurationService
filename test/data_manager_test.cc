@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <algorithm>
-#include <data.hpp>
-#include <redis_communicator.hpp>
+
+#include <configuration.hpp>
 
 
 const char* instrument_file = "../sample/example_instrument.js";

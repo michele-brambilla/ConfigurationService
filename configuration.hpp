@@ -3,9 +3,8 @@
 #include <iostream>
 #include <fstream>
 
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
+
+#include <redis_configuration.hpp>
 
 
 namespace configuration {

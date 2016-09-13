@@ -9,11 +9,10 @@
 #include <redis_utils.hpp>
 
 #include <basic_communicator.hpp>
+#include <basic_data.hpp>
 
 
 namespace configuration {
-
-
 
 
   using namespace container;
@@ -52,7 +51,7 @@ namespace configuration {
       }
 
       
-      void Clear() { rdx.command<std::string>({"FLUSHALL"}); }
+      void Clear() override { rdx.command<std::string>({"FLUSHALL"}); }
 
       redox::Redox& redox() { return rdx; } 
       

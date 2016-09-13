@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <configuration.hpp>
-#include <data.hpp>
-#include <communication.hpp>
 
 
 const char* instrument_file = "../sample/example_instrument.js";

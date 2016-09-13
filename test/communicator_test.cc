@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <redis_communicator.hpp>
+#include <configuration.hpp>
 
 static const std::string redis_server="192.168.10.11";
 static const int redis_port=6379;

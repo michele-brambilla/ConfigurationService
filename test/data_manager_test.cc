@@ -28,25 +28,31 @@ static const std::string redis_server="192.168.10.11";
 static const int redis_port=6379;
 // typedef configuration::data::MockDataManager DM;
 
-typedef configuration::data::RedisDataManager DM;
-typedef configuration::communicator::RedisCommunicator FCM;
+//typedef configuration::communicator::RedisCommunicator CM;
 
+
+typedef configuration::communicator::MockCommunicator CM;
+using DM = configuration::data::RedisDataManager<CM>;
+
+
+CM comm(redis_server,redis_port);
+DM dm(redis_server,redis_port,comm);
 
 using namespace configuration::data;
 
 TEST (DataManager, ValidString) {
-  EXPECT_TRUE( DM(redis_server,redis_port).IsValidString( read_config_file(instrument_file) ) );
+  EXPECT_TRUE( DM(redis_server,redis_port,comm).IsValidString( read_config_file(instrument_file) ) );
 }
 
 TEST (DataManager, AddConfig) {
-  DM dm(redis_server,redis_port);
+  //  DM dm(redis_server,redis_port,comm);
   dm.Clear();
   EXPECT_TRUE( dm.IsValidString( read_config_file(instrument_file) ) );
   EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
 }
 
 TEST (DataManager, AddNewConfig) {
-  DM dm(redis_server,redis_port);
+  // DM< FCM> dm(redis_server,redis_port,comm);
   dm.Clear();
   EXPECT_TRUE( dm.AddConfig( read_config_file(instrument_file) ) );
   // add new config on top of existing one
@@ -55,7 +61,7 @@ TEST (DataManager, AddNewConfig) {
 }
 
 TEST (DataManager, QueryHash) {
-  DM dm(redis_server,redis_port);
+  // DM< FCM> dm(redis_server,redis_port,comm);
    dm.Clear();
    dm.AddConfig( read_config_file(instrument_file) );
   
@@ -68,7 +74,7 @@ TEST (DataManager, QueryHash) {
 }
 
 TEST (DataManager, QuerySet) {
-  DM dm(redis_server,redis_port);
+  // DM< FCM> dm(redis_server,redis_port,comm);
   dm.Clear();
   dm.AddConfig( read_config_file(instrument_file) );
   std::vector<std::string> expect_failure = { "type","address","something else"};
@@ -104,7 +110,7 @@ TEST (DataManager, QuerySet) {
 }
 
 TEST (DataManager, UpdateHash) {
-  DM dm(redis_server,redis_port);
+  // DM< FCM> dm(redis_server,redis_port,comm);
   dm.Clear();
   dm.AddConfig( read_config_file(instrument_file) );
   // test original value
@@ -118,7 +124,7 @@ TEST (DataManager, UpdateHash) {
 }
 
 TEST (DataManager, UpdateSet) {
-  DM dm(redis_server,redis_port);
+  // DM< FCM> dm(redis_server,redis_port,comm);
   dm.Clear();
   dm.AddConfig( read_config_file(instrument_file) );
   // add new field to config
@@ -145,7 +151,7 @@ TEST (DataManager, UpdateSet) {
 }
 
 TEST (DataManager, DeleteHash) {
-  DM dm(redis_server,redis_port);
+  // DM< FCM> dm(redis_server,redis_port,comm);
   dm.Clear();
   dm.AddConfig( read_config_file(instrument_file) );
   // test key existence
@@ -162,7 +168,7 @@ TEST (DataManager, DeleteHash) {
 }
 
 TEST (DataManager, DeleteSet) {
-  DM dm(redis_server,redis_port);
+  // DM< FCM> dm(redis_server,redis_port,comm);
   dm.Clear();
   dm.AddConfig( read_config_file(instrument_file) );
   // test key existence
@@ -190,7 +196,7 @@ TEST (DataManager, DeleteSet) {
 
 
 // TEST (DataManager, Updates) {
-//   DM dm(redis_server,redis_port);
+//   // DM< FCM> dm(redis_server,redis_port,comm);
 //   // test updates initially void
 //   EXPECT_TRUE( dm.UpdatesList().size() == 0 );
 //   dm.AddConfig( read_config_file(instrument_file) );

@@ -22,13 +22,15 @@ namespace configuration {
     
     /////////////////////
     // Redis data manager
+    template<typename Communicator>
     struct RedisDataManager  : public DataManager
     {
       typedef RedisDataManager self_t;
 
       RedisDataManager(const std::string& redis_server,
                        const int& redis_port,
-                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal), log(logger) {
+                       Communicator& communicator,
+                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal), updates(communicator), log(logger) {
         if( !rdx.connect(redis_server, redis_port) ) {
           log << "Can't connect to REDIS server\n";
           throw std::runtime_error("Can't connect to REDIS server");
@@ -59,8 +61,10 @@ namespace configuration {
 
       redox::Redox rdx;
       std::ostream& log;
+      Communicator& updates;
+      
       //      MockContainer container;
-      std::vector<std::pair<std::string,std::string> > updates;
+      //      std::vector<std::pair<std::string,std::string> > updates;
 
       bool KeyExists (const std::string& key) override {
         std::string s="KEYS "+key;
@@ -73,23 +77,33 @@ namespace configuration {
       bool AddToHash(const std::string& key,
                      const std::vector<std::string>& value) override {
         bool is_ok = true;
-        for(auto& v : value)
-          is_ok &= AddToHash(key,v);
+        bool ok;
+        for(auto& v : value) {
+          ok = AddToHash(key,v);
+          if( ok )
+            updates.Publish(key,"a");
+          is_ok &= ok;
+        }
         return is_ok;
       }
       bool AddToHash(const std::string& key, const std::string& value) override {
-        updates.push_back(std::pair<std::string,std::string>(key,"a"));
+        //        updates.push_back(std::pair<std::string,std::string>(key,"a"));
+        updates.Publish(key,"a");
         return rdx.set(key,value);
       }
       
       bool RemoveFromParent(const std::string& parent,const std::string& name) override {
         bool is_ok = true;
-        is_ok &= utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,std::string("SREM ")+parent+" "+name);
+        bool ok;
+        ok = utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,std::string("SREM ")+parent+" "+name);
+        if( ok )
+          updates.Publish(parent,"u");
+        is_ok &= ok;
         // if parents gets empty, delete
         int nelem;
         utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+parent,nelem);
-        if (nelem == 0)
-          is_ok &= (RemoveKey(parent) > 0);
+        if (nelem == 0) 
+          is_ok &=  (RemoveKey(parent) > 0) ;
         
         return is_ok;
       }
@@ -97,13 +111,16 @@ namespace configuration {
         utils::typelist::KEYS_t children_list;
         std::string cmd="KEYS "+key+":*";
         utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,cmd,children_list);
-        for( auto& c : children_list )
-          utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,"DEL "+c);
+        for( auto& c : children_list ) {
+          if ( utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,"DEL "+c) )
+            updates.Publish(c,"d");
+        }          
         return children_list.size();
       }
 
       bool RemoveKey(const std::string& key) override {
-        updates.push_back(std::pair<std::string,std::string>(key,"d"));   
+        //updates.push_back(std::pair<std::string,std::string>(key,"d"));   
+        updates.Publish(key,"d");
         std::string key_type;
         utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
         bool is_ok = true;
@@ -120,7 +137,11 @@ namespace configuration {
         // std::string parent_key=key.substr(0,found);
         // std::string parent_value=key.substr(found+1);
         is_ok &= RemoveFromParent(key.substr(0,found),key.substr(found+1));
-        is_ok &= utils::ExecRedisCmd<int>(rdx,std::string("DEL ")+key);
+        bool ok;
+        is_ok & (ok = utils::ExecRedisCmd<int>(rdx,std::string("DEL ")+key) );
+        if(ok) {
+          updates.Publish(key,"d");
+        }
         return is_ok;
         
       }
@@ -128,12 +149,14 @@ namespace configuration {
       
       bool UpdateHashValue(const std::string& key,const std::string& value) override {
         std::string cmd = std::string("SET ")+key+" "+value;
+        updates.Publish(key,"u");
         return utils::ExecRedisCmd<std::string>(rdx,cmd);
       }
 
 
       bool AddToParent(const std::string& key,const std::string& value) override {
         std::string cmd=std::string("SADD ")+key+" "+value;
+        updates.Publish(key,"u");
         return utils::ExecRedisCmd<int>(rdx,cmd);;
       }
 

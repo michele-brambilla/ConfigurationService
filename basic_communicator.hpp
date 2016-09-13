@@ -92,6 +92,15 @@ namespace configuration {
 
     };
 
+
+
+
+    struct MockCommunicator : public Communicator {
+
+      MockCommunicator(const std::string&, const int&) { };
+      
+    };
+    
   }
 }
   

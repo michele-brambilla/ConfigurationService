@@ -32,7 +32,17 @@ Requires hiredis, libev for redox
 ```
 yum install hiredis-devel libev-devel
 ```
-Package hiredis can be missing on the standard repository. As a workaround, dowload it from pkg servers:
+If not present in the repository:
+
+    Download the latest epel-release rpm from
+    http://dl.fedoraproject.org/pub/epel/6/i386/
+    Install epel-release rpm:
+    # rpm -Uvh epel-release*rpm
+    Install hiredis rpm package:
+    # yum install hiredis
+
+
+Alternative: dowload it from pkg servers:
 ```
 http://dl.fedoraproject.org/pub/epel/7/x86_64/h/hiredis-0.12.1-1.el7.x86_64.rpm
 http://dl.fedoraproject.org/pub/epel/7/x86_64/h/hiredis-devel-0.12.1-1.el7.x86_64.rpm

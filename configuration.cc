@@ -1,49 +1,19 @@
 #include <configuration.hpp>
 
+
+  
+void configuration::default_got_message(const std::string & t,const std::string & c)  {
+  std::cerr << "Using function callback > "<< t << "\t" << c << std::endl;
+}
+void configuration::default_got_error(const std::string & t,const int & v)  {
+  std::cerr << "Error function callback: > "<< t << "\t->\t" << v << std::endl;
+}
+void configuration::default_unsubscribed(const std::string & t)  {
+  std::cerr << "Unsubscribe function callback < "<< t << std::endl;
+}
+
+
 namespace configuration {
-
-  
-  template<typename DataManager,typename CommunicationManager>
-  void ConfigurationManager<DataManager,CommunicationManager>::AddConfig(const std::string& conf) {
-    bool success = (*this).dm->AddConfig(conf);
-    if(!success)
-      log << "Error: can't add config " << conf << std::endl;
-  }
-
-  template<typename DataManager,typename CommunicationManager>
-  void ConfigurationManager<DataManager,CommunicationManager>::AddConfig(std::ifstream& in) {
-    std::string config,buf;
-    while(!in.eof()) {
-      std::getline(in, buf,'\t');
-      config += buf;
-    }
-    in.close();
-    bool success = dm->AddConfig(config);
-    if(!success)
-      log << "Error: can't add config from file " << std::endl;
-  }
-
-  template<typename DataManager,typename CommunicationManager>
-  void ConfigurationManager<DataManager,CommunicationManager>::Update(const std::string& key, const std::string& value) {
-    bool success = dm->Update(key,value);
-    if(!success)
-      log << "Error: can't update " << key << std::endl;
-  }
-  
-  template<typename DataManager,typename CommunicationManager>
-  void ConfigurationManager<DataManager,CommunicationManager>::Delete(const std::string& key) {
-    bool success = dm->Delete(key);
-    if(!success)
-      log << "Error: can't delete " << key << std::endl;
-  }
-  
-  template<typename DataManager,typename CommunicationManager>
-  void ConfigurationManager<DataManager,CommunicationManager>::Notify() {
-    bool success = cm->Notify();
-    if(!success)
-      log << "Error: can't notify " << std::endl;
-  }
-
 
   ////////////////////////////
   // Function calls

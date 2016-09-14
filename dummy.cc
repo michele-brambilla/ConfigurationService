@@ -147,6 +147,24 @@ const int redis_port = 6379;
 using namespace configuration::data;
 using namespace configuration::communicator;
 
+std::string read_config_file(const char* s) {
+  std::ifstream in;
+  in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
+  try {
+    in.open(s);
+  }
+  catch (std::ifstream::failure e) {
+    std::cout << "Exception opening/reading file: " << e.what() << std::endl;
+  }
+  std::string config,buf;
+  while(!in.eof()) {
+     std::getline(in, buf,'\t');
+     config += buf;
+  }
+  in.close();
+  return config;
+}
+
 int main() {
 
   // RedisCommunicator cm(redis_server,redis_port);
@@ -161,9 +179,19 @@ int main() {
   // }
 
 
-  //  configuration::ConfigurationManager<D,C> config0;
-  configuration::ConfigurationManager<D,C> config(redis_server,redis_port,redis_server,redis_port);
+  configuration::ConfigurationManager<D,C> config(redis_server,redis_port,
+                                                  redis_server,redis_port);
 
+
+  config.AddConfig(read_config_file("../sample/example_instrument.js"));
+
+  config.Subscribe("instrument:user");
+
+  while(1) {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+
+  
   //  configuration::Init(redis_server,redis_port);
   
   

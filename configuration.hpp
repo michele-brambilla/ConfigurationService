@@ -23,9 +23,11 @@ std::unique_ptr<T> make_unique( CONSTRUCTOR_ARGS&&... constructor_args )
 #endif // __cplusplus == 201402L
 
 namespace configuration {
-
-
-  //  template<typename DataManager, typename CommunicationManager> struct ConfigurationManager;
+  
+  void default_got_message(const std::string&,const std::string&);
+  void default_got_error(const std::string &,const int &);
+  void default_unsubscribed(const std::string &);
+  
 
   template<typename DataManager, typename CommunicationManager>
   struct ConfigurationManager {
@@ -42,52 +44,45 @@ namespace configuration {
       log << "DataManager addr = " << dm.get() << std::endl;
     }
 
-    void AddConfig(const std::string&);
-    // void AddConfig(const std::string& conf) {
-    //   bool success = dm->AddConfig(conf);
-    //   if(!success)
-    //     log << "Error: can't add config " << conf << std::endl;
-    // }
+    void AddConfig(const std::string& conf) {
+      bool success = dm->AddConfig(conf);
+      if(!success)
+        log << "Error: can't add config " << std::endl;
+    }
 
-    void AddConfig(std::ifstream&);
-    // void AddConfig(std::ifstream& in) {
-    //   std::string config,buf;
-    //   while(!in.eof()) {
-    //     std::getline(in, buf,'\t');
-    //     config += buf;
-    //   }
-    //   in.close();
-    //   bool success = dm->AddConfig(config);
-    //   if(!success)
-    //     log << "Error: can't add config from file " << std::endl;
-    // }
-
-    void Update(const std::string&, const std::string&);
-    // void Update(const std::string& key, const std::string& value) {
-    //   bool success = dm->Update(key,value);
-    //   if(!success)
-    //     log << "Error: can't update " << key << std::endl;
-    // }
+    void Update(const std::string& key, const std::string& value) {
+      bool success = dm->Update(key,value);
+      if(!success)
+        log << "Error: can't update " << key << std::endl;
+    }
       
-    void Delete(const std::string&);
-    // void Delete(const std::string& key) {
-    //   bool success = dm->Delete(key);
-    //   if(!success)
-    //     log << "Error: can't delete " << key << std::endl;
-    // }
+    void Delete(const std::string& key) {
+      bool success = dm->Delete(key);
+      if(!success)
+        log << "Error: can't delete " << key << std::endl;
+    }
 
-    void Notify();
-    // void Notify() {
-    //   bool success = cm->Notify();
-    //   if(!success)
-    //     log << "Error: can't notify " << std::endl;
-    // }
+    void Notify() {
+      bool success = cm->Notify();
+      if(!success)
+        log << "Error: can't notify " << std::endl;
+    }
+
+    void Subscribe(const std::string& key,
+                     std::function<void(const std::string&,const std::string&)> got_message=default_got_message,
+                     std::function<void(const std::string&,const int&)> got_error=default_got_error,
+                     std::function<void(const std::string&)> unsubscribed=default_unsubscribed
+                     ) {
+
+      bool success = cm->Subscribe(key,got_message,got_error,unsubscribed);
+    }
 
     
   private:
     std::unique_ptr<CommunicationManager> cm;
     std::unique_ptr<DataManager> dm;
     std::ostream& log;
+
   };
 
 

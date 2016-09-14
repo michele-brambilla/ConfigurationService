@@ -1,5 +1,11 @@
 language: cpp
 
+env:
+  - OS_TYPE=centos OS_VERSION=7
+
+services:
+  - redis-server
+  
 # Handle git submodules yourself
 git:
   submodules: false

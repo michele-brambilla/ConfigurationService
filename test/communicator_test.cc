@@ -2,7 +2,7 @@
 
 #include <configuration.hpp>
 
-static const std::string redis_server="192.168.10.11";
+std::string redis_server="192.168.10.11";
 static const int redis_port=6379;
 static const int num_test_msg=10;
 
@@ -275,5 +275,13 @@ TEST (CommunicatorManager, UnsubscribeMember) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+
+   // hack for automated testing
+  {
+    redox::Redox rdx;
+    if( !rdx.connect(redis_server.c_str()) )
+      redis_server="localhost";
+  }
+  
   return RUN_ALL_TESTS();
 }

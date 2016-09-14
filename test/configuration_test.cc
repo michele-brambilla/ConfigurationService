@@ -2,9 +2,6 @@
 
 #include <configuration.hpp>
 
-
-
-
 std::string read_config_file(const char* s) {
   std::ifstream in;
   in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
@@ -35,10 +32,10 @@ using namespace configuration;
 std::string path;
 const char* instrument_file = "sample/example_instrument.js";
 const char* new_instrument_file = "sample/example_instrument2.js";
-const char* redis_server = "192.168.10.11";
+std::string redis_server = "192.168.10.11";
 const int redis_port = 6379;
 
-ConfigurationService cs(redis_server,redis_port,redis_server,redis_port);
+ConfigurationService cs(redis_server.c_str(),redis_port,redis_server.c_str(),redis_port);
 
 TEST (UploadConfig, ValidConfiguration) {
   std::string in = read_config_file((path+instrument_file).c_str()); 
@@ -73,7 +70,13 @@ int main(int argc, char **argv) {
     path = std::string(argv[1])+"/";
   else
     path = "../";
-  
-  
+
+  // hack for automated testing
+  {
+    redox::Redox rdx;
+    if( !rdx.connect(redis_server.c_str()) )
+      redis_server="localhost";
+  }
+      
   return RUN_ALL_TESTS();
 }

@@ -25,7 +25,7 @@ std::string read_config_file(const char* s) {
   return config;
 }
 
-static const std::string redis_server="192.168.10.11";
+std::string redis_server="192.168.10.11";
 static const int redis_port=6379;
 
 
@@ -33,13 +33,13 @@ typedef configuration::communicator::MockCommunicator CM;
 using DM = configuration::data::RedisDataManager<CM>;
 
 
-CM comm(redis_server,redis_port);
-DM dm(redis_server,redis_port,comm);
+CM comm(redis_server.c_str(),redis_port);
+DM dm(redis_server.c_str(),redis_port,comm);
 
 using namespace configuration::data;
 
 TEST (DataManager, ValidString) {
-  EXPECT_TRUE( DM(redis_server,redis_port,comm).IsValidString( read_config_file((path+instrument_file).c_str()) ) );
+  EXPECT_TRUE( dm.IsValidString( read_config_file((path+instrument_file).c_str()) ) );
 }
 
 TEST (DataManager, AddConfig) {
@@ -215,6 +215,14 @@ int main(int argc, char **argv) {
     path = std::string(argv[1])+"/";
   else
     path = "../";
+  
+  // hack for automated testing
+  {
+    redox::Redox rdx;
+    if( !rdx.connect(redis_server.c_str()) )
+      redis_server="localhost";
+  }
 
+  
   return RUN_ALL_TESTS();
 }

@@ -323,7 +323,8 @@ namespace configuration {
           subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         else
           subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
-        
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
         return is_ok;
       }
 
@@ -348,6 +349,8 @@ namespace configuration {
           subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         else
           subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
         
         return is_ok;
       }

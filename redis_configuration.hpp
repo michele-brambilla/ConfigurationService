@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <map>
 #include <functional>
+#include <algorithm>
 
 #include <redis_utils.hpp>
 
@@ -27,7 +28,7 @@ namespace configuration {
       RedisDataManager(const std::string& redis_server,
                        const int& redis_port,
                        Communicator& communicator,
-                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal), updates(communicator), log(logger) {
+                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal), log(logger), updates(communicator) {
         if( !rdx.connect(redis_server, redis_port) ) {
           log << "Can't connect to REDIS server\n";
           throw std::runtime_error("Can't connect to REDIS server");
@@ -96,7 +97,7 @@ namespace configuration {
         is_ok &= ok;
         // if parents gets empty, delete
         int nelem;
-        utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+parent,nelem);
+        utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+parent,&nelem);
         if (nelem == 0) 
           is_ok &=  (RemoveKey(parent) > 0) ;
         
@@ -123,7 +124,7 @@ namespace configuration {
         if(key_type == "set") {
           // remove children
           int nelem;
-          utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+key,nelem);
+          utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+key,&nelem);
           is_ok &= ( (RemoveChildren(key)>0 && nelem >0) ? true : false);
         }
         
@@ -133,7 +134,7 @@ namespace configuration {
         // std::string parent_value=key.substr(found+1);
         is_ok &= RemoveFromParent(key.substr(0,found),key.substr(found+1));
         bool ok;
-        is_ok & (ok = utils::ExecRedisCmd<int>(rdx,std::string("DEL ")+key) );
+        is_ok &= (ok = utils::ExecRedisCmd<int>(rdx,std::string("DEL ")+key) );
         if(ok) {
           updates.Publish(key,"d");
         }
@@ -183,7 +184,7 @@ namespace configuration {
         if(key_type == "set") {
           utils::ExecRedisCmd<utils::typelist::LIST_t>(rdx,std::string("SMEMBERS ")+key,result);
           // removes eventual empty items
-          result.erase( std::remove( result.begin(), result.end(), "" ), result.end() );
+          result.erase( std::remove( result.begin(), result.end(), " " ), result.end() );
         }
         else
           if(key_type == "string") {
@@ -274,12 +275,12 @@ namespace configuration {
 
       bool Notify() override {
         std::string cmd = "PUBLISH ";
-          int nclients;
+        int nclients;
         bool is_ok = true;
         for(auto& msg : updates) {
           is_ok &= utils::ExecRedisCmd<int>(publisher,
                                             cmd+msg.first+" "+msg.second,
-                                            nclients);
+                                            &nclients);
           if( nclients == 0 )
             log << msg.first << ": no connected clients\n";
         }

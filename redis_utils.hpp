@@ -49,6 +49,17 @@ namespace configuration {
       return true;
     }
 
+    template<typename Output>
+    bool ExecRedisCmd(redox::Redox& r, const std::string& s, Output* out) {
+      auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
+      if( !c.ok() ) {
+        std::cerr << "Error: " << c.lastError() << std::endl;
+        return false;
+      }
+      (*out) = c.reply();
+      //      std::cout << "Reply.size = " << out.size()  << std::endl;
+      return true;
+    }
 
 
 

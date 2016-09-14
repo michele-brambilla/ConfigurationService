@@ -3,22 +3,17 @@
 #include <configuration.hpp>
 
 
-const char* instrument_file = "../sample/example_instrument.js";
 
-std::ifstream open_config_file(const char* s) {
+
+std::string read_config_file(const char* s) {
   std::ifstream in;
+  in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
   try {
-    in.open(instrument_file);
-    in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
+    in.open(s);
   }
   catch (std::ifstream::failure e) {
     std::cout << "Exception opening/reading file: " << e.what() << std::endl;
   }
-  return in;
-}
-
-std::string read_config_file(const char* s) {
-  std::ifstream in = open_config_file(s);
   std::string config,buf;
   while(!in.eof()) {
      std::getline(in, buf,'\t');
@@ -30,43 +25,42 @@ std::string read_config_file(const char* s) {
 
 
 
-typedef configuration::MockDataManager DM;
-typedef configuration::MockCommunicationManager CM;
-DM d;
-CM c;
+
+using CM = configuration::communicator::RedisCommunicator;
+using DM = configuration::data::RedisDataManager<CM>;
+using ConfigurationService = configuration::ConfigurationManager<DM,CM>;
 
 using namespace configuration;
 
+std::string path;
+const char* instrument_file = "sample/example_instrument.js";
+const char* new_instrument_file = "sample/example_instrument2.js";
+const char* redis_server = "192.168.10.11";
+const int redis_port = 6379;
 
+ConfigurationService cs(redis_server,redis_port,redis_server,redis_port);
 
-TEST (UploadConfig, ValidFile) {
-  std::ifstream in = open_config_file(instrument_file); 
+TEST (UploadConfig, ValidConfiguration) {
+  std::string in = read_config_file((path+instrument_file).c_str()); 
   
-  ConfigurationService<DM,CM> cs(d,c);
-  EXPECT_TRUE(cs.UploadConfig(in));
-}
-
-TEST (UploadConfig, ValidString) {
-  std::string config = read_config_file(instrument_file);
-
-  std::cout << config << std::endl;
-  ConfigurationService<DM,CM> cs(d,c);
-
-  EXPECT_TRUE(cs.UploadConfig(config));
+  std::cout << in << std::endl;
+  {
+    CM c(redis_server,redis_port);
+    DM d(redis_server,redis_port,c);
+    d.Clear();
+  }
+  
+  EXPECT_TRUE(cs.AddConfig(in));
 }
 
 TEST (UploadConfig, RecordPresent) {
-  std::string config = read_config_file(instrument_file);
-  
-  ConfigurationService<DM,CM> cs(d,c);
-  EXPECT_TRUE(cs.UploadConfig(config));
+  std::string in = read_config_file((path+instrument_file).c_str());
+  EXPECT_FALSE(cs.AddConfig(in));
 }
 
 TEST (UploadConfig, RecordNotPresent) {
-  std::string config = read_config_file(instrument_file);
- 
-  ConfigurationService<DM,CM> cs(d,c);
-  EXPECT_TRUE(cs.UploadConfig(config));
+  std::string in = read_config_file((path+new_instrument_file).c_str());
+  EXPECT_TRUE(cs.AddConfig(in));
 }
 
 
@@ -74,5 +68,12 @@ TEST (UploadConfig, RecordNotPresent) {
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+
+  if(argc > 1)
+    path = std::string(argv[1])+"/";
+  else
+    path = "../";
+  
+  
   return RUN_ALL_TESTS();
 }

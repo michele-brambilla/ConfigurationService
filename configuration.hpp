@@ -44,37 +44,41 @@ namespace configuration {
       log << "DataManager addr = " << dm.get() << std::endl;
     }
 
-    void AddConfig(const std::string& conf) {
+    bool AddConfig(const std::string& conf) {
       bool success = dm->AddConfig(conf);
       if(!success)
         log << "Error: can't add config " << std::endl;
+      return success;
     }
 
-    void Update(const std::string& key, const std::string& value) {
+    bool Update(const std::string& key, const std::string& value) {
       bool success = dm->Update(key,value);
       if(!success)
         log << "Error: can't update " << key << std::endl;
+      return false;
     }
       
-    void Delete(const std::string& key) {
+    bool Delete(const std::string& key) {
       bool success = dm->Delete(key);
       if(!success)
         log << "Error: can't delete " << key << std::endl;
+      return false;
     }
 
-    void Notify() {
+    bool Notify() {
       bool success = cm->Notify();
       if(!success)
         log << "Error: can't notify " << std::endl;
+      return false;
     }
 
-    void Subscribe(const std::string& key,
+    bool Subscribe(const std::string& key,
                      std::function<void(const std::string&,const std::string&)> got_message=default_got_message,
                      std::function<void(const std::string&,const int&)> got_error=default_got_error,
                      std::function<void(const std::string&)> unsubscribed=default_unsubscribed
                      ) {
 
-      bool success = cm->Subscribe(key,got_message,got_error,unsubscribed);
+      return cm->Subscribe(key,got_message,got_error,unsubscribed);
     }
 
     

@@ -5,7 +5,15 @@ env:
 
 services:
   - redis-server
-  
+
+sudo: required
+dist: trusty
+
+# Compiler selection
+compiler:
+  - clang
+  - gcc
+
 # Handle git submodules yourself
 git:
   submodules: false

@@ -24,4 +24,4 @@ before_install:
   - git submodule update --init --recursive
   
   # Build steps
-script: ./make.sh
+script: ./make-ci.sh

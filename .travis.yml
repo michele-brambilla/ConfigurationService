@@ -1,13 +1,14 @@
 language: cpp
+cache: ccache
+sudo: required
+dist: trusty
 
+# OS
 env:
   - OS_TYPE=centos OS_VERSION=7
 
 services:
   - redis-server
-
-sudo: required
-dist: trusty
 
 # Compiler selection
 compiler:
@@ -21,11 +22,6 @@ git:
 before_install:
   - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
   - git submodule update --init --recursive
-  - sudo apt-get update
-  - sudo apt-get -y install hiredis-devel libev-devel
   
   # Build steps
-script:
-  - mkdir build
-  - cd build
-  - cmake .. && make
+script: ./make.sh

@@ -20,5 +20,5 @@ sudo cp -r googletest/googletest/include/gtest /usr/local/include
 
 # Make
 mkdir build && cd build
-cmake .. && make
+cmake .. && make && make test
 

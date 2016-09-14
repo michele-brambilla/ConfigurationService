@@ -9,7 +9,7 @@
 // #include <rapidjson/stringbuffer.h>
 // #include <rapidjson/error/en.h>
 
-#include <redis_configuration.hpp>
+#include <configuration.hpp>
 
 // using namespace std;
 // using redox::Redox;
@@ -149,17 +149,22 @@ using namespace configuration::communicator;
 
 int main() {
 
-  RedisCommunicator cm(redis_server,redis_port);
-  RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
+  // RedisCommunicator cm(redis_server,redis_port);
+  // RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
 
 
-  while(1) {
-    dm.Dump();
+  // while(1) {
+  //   dm.Dump();
 
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+  //   std::this_thread::sleep_for(std::chrono::seconds(5));
     
-  }
-  
+  // }
+
+
+  //  configuration::ConfigurationManager<D,C> config0;
+  configuration::ConfigurationManager<D,C> config(redis_server,redis_port,redis_server,redis_port);
+
+  //  configuration::Init(redis_server,redis_port);
   
   
   // //  Redox rdx;

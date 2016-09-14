@@ -17,7 +17,7 @@ include_directories("${PROJECT_SOURCE_DIR}/rapidjson/include")
 include_directories("${PROJECT_SOURCE_DIR}/redox/include")
 link_directories("${PROJECT_SOURCE_DIR}/redox/build")
 
-add_executable (dummy dummy.cc) 
+add_executable (dummy dummy.cc configuration.cc redis_configuration.cc) 
 target_link_libraries( dummy
   redox)
   

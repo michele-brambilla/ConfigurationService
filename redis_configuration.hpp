@@ -15,9 +15,6 @@
 namespace configuration {
 
 
-  using namespace container;
-
-  
   namespace data {
     
     /////////////////////
@@ -56,15 +53,13 @@ namespace configuration {
       void Clear() override { rdx.command<std::string>({"FLUSHALL"}); }
 
       redox::Redox& redox() { return rdx; } 
-      
+     
     private:
 
       redox::Redox rdx;
       std::ostream& log;
       Communicator& updates;
       
-      //      MockContainer container;
-      //      std::vector<std::pair<std::string,std::string> > updates;
 
       bool KeyExists (const std::string& key) override {
         std::string s="KEYS "+key;
@@ -470,8 +465,6 @@ namespace configuration {
       }
       
     };
-    int RedisCommunicator::MaxStoredMessages = 100;
-    int RedisCommunicator::NotificationTimeout = 1;
     
   }
 }

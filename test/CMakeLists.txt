@@ -4,7 +4,7 @@ include_directories (
   ${TEST_SOURCE_DIR}
   ) 
 
-add_executable (communicator_test communicator_test.cc) 
+add_executable (communicator_test communicator_test.cc ${PROJECT_SOURCE_DIR}/redis_configuration.cc) 
 add_executable (data_test data_manager_test.cc) 
 
 find_package(GTest REQUIRED)

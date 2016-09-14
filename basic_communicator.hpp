@@ -58,7 +58,7 @@ namespace configuration {
 
     
     struct Communicator {
-
+      
       //////////////
       /// Informs that key has changed its value according to status: 
       /// - u: value or content has been updated

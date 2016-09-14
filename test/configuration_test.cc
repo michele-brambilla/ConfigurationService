@@ -48,7 +48,8 @@ TEST (UploadConfig, ValidFile) {
 
 TEST (UploadConfig, ValidString) {
   std::string config = read_config_file(instrument_file);
-  
+
+  std::cout << config << std::endl;
   ConfigurationService<DM,CM> cs(d,c);
 
   EXPECT_TRUE(cs.UploadConfig(config));

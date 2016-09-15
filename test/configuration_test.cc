@@ -2,6 +2,9 @@
 
 #include <configuration.hpp>
 
+static const int num_test_msg=10;
+
+
 std::string read_config_file(const char* s) {
   std::ifstream in;
   in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
@@ -18,6 +21,11 @@ std::string read_config_file(const char* s) {
   }
   in.close();
   return config;
+}
+
+
+void counting_got_message(const std::string &,const std::string &,int& count)  {
+  count++;
 }
 
 
@@ -139,8 +147,6 @@ TEST (UpdateConfig, MultipleValues) {
 }
 
 
-
-
 TEST (Delete, KeyValue) {
 
   // test key existence
@@ -178,6 +184,139 @@ TEST (Delete, MultipleValues) {
   EXPECT_FALSE( (cs.Query("instrument1:experiment").size() > 0 ) );
   
 }
+
+
+
+TEST (Communications, SubscribeTopic) {
+
+  CM publisher(redis_server,redis_port);
+  int n_recv = 0;
+
+  
+  auto f = std::bind(counting_got_message,
+                     std::placeholders::_1,
+                     std::placeholders::_2,
+                     std::ref(n_recv));
+
+  ASSERT_TRUE( cs.Subscribe("message:1",f) );
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  
+  publisher.Publish(std::string("message:1"),"a");
+  publisher.Notify();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(n_recv,1);
+
+  // a single notify corresponds to a single invocation of got_message
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),std::to_string(i));
+  }
+  publisher.Notify();
+  
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(n_recv,2);
+  
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),std::to_string(i));
+    publisher.Notify();
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(n_recv,2+num_test_msg);
+
+  publisher.Disconnect();
+  
+}
+
+TEST (Communications, NonSubscribedTopics) {
+
+  CM publisher(redis_server,redis_port);
+  int n_recv = 0;
+  
+  auto f = std::bind(counting_got_message,
+                     std::placeholders::_1,
+                     std::placeholders::_2,
+                     std::ref(n_recv));
+  
+  ASSERT_TRUE( cs.Subscribe("message:1",f) );
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  
+  publisher.Publish(std::string("message:1"),"a");
+  publisher.Publish(std::string("message:2"),"b");
+  publisher.Publish(std::string("message:3"),"c");
+  publisher.Notify();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(n_recv,1);
+
+  // a single notify corresponds to a single invocation of got_message
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),std::to_string(i));
+    publisher.Publish(std::string("message:2"),std::to_string(i));
+    publisher.Publish(std::string("message:3"),std::to_string(i));
+  }
+  publisher.Notify();
+  
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(n_recv,2);
+  
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),std::to_string(i));
+    publisher.Publish(std::string("message:2"),std::to_string(i));
+    publisher.Publish(std::string("message:3"),std::to_string(i));
+    publisher.Notify();
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(n_recv,2+num_test_msg);
+  
+  publisher.Disconnect();
+}
+
+
+TEST (CommunicatorManager, SubscribeMultipleTopics) {
+  CM publisher(redis_server,redis_port);
+
+  ASSERT_TRUE( cs.Subscribe("message:*") );
+
+  // just ensure enough time to connect
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  
+  // std::vector<std::string> status = {"a","u","d"};
+  // for(int i = 0; i < num_test_msg;++i) {
+  //   publisher.Publish(std::string("message:1"),status[i%3]);
+  //   publisher.Publish(std::string("message:2"),status[i%3]);
+  //   publisher.Publish(std::string("message:3"),status[i%3]);
+  //   publisher.Notify();
+  // }
+  // // after 1 sec you can be confident that all messages arrived
+  // std::this_thread::sleep_for(std::chrono::seconds(1));
+  // EXPECT_EQ(listener.NumRecvMessages(),num_test_msg*3);
+  
+}
+
+
+
+// TEST (CommunicatorManager, AddMessages) {
+//   CM cm(redis_server,redis_port);
+//   EXPECT_EQ(cm.NumMessages(),0);
+//   std::vector<std::string> status = {"a","u","d"};
+//   for(int i = 0; i < num_test_msg;++i)
+//     EXPECT_TRUE( cm.Publish(std::to_string(i),status[i%3]) );
+//   EXPECT_EQ(cm.NumMessages(),num_test_msg);
+// }
+
+// TEST (CommunicatorManager, Notify) {
+//   CM cm(redis_server,redis_port);
+//   std::vector<std::string> status = {"a","u","d"};
+//   for(int i = 0; i < num_test_msg;++i) {
+//     cm.Publish(std::string("message:")+std::to_string(i),status[i%3]);
+//   }
+//   EXPECT_TRUE( cm.Notify() );
+//   EXPECT_EQ(cm.NumMessages(),0);
+// }
+
+
 
 
 

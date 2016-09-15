@@ -187,16 +187,50 @@ void dummy_connection_callback(int status) {
   return;
 }
 
+
+void counting_got_message(const std::string & t,const std::string & c,int& count)  {
+  std::cout << t << c << std::endl;
+  count++;
+  return;
+}
+
+
+int multiply(const int& a, const int& b)
+{
+    return a * b;
+}
+
+
+void goodbye(const std::string& s,const std::string& r)
+{
+  std::cout << "Goodbye " << s << " " << r << '\n';
+}
 int main() {
+  int n;
+  auto f = std::bind(counting_got_message,
+                     std::placeholders::_1,
+                     std::placeholders::_2,
+                     std::ref(n));
+  f("a","b");
+  int y = 5;
+  auto h = std::bind(multiply, std::cref(y), std::placeholders::_1);
+  for (int i = 0; i < 10; i++)
+    {
+      std::cout << "5 * " << i << " = " << h(i) << std::endl;
+    }
 
-  RedisCommunicator cm(redis_server,redis_port);
-
+  std::string str("World");
+  std::function<void(const std::string&)>  g = std::bind(goodbye, std::ref(str) , std::placeholders::_1);
+  g("crudele");
+  
+  // RedisCommunicator cm(redis_server,redis_port);
+  // cm.Publish("message:1","three");
   // cm.Disconnect();
   // std::cout << cm.Reconnect() << std::endl;
 
   // //  std::function<void(int)>
   
-  RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
+  //  RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
 
 
   // while(1) {

@@ -20,5 +20,8 @@ sudo cp -r googletest/googletest/include/gtest /usr/local/include
 
 # Make
 mkdir build && cd build
-cmake .. && make && make test
+cmake .. && make
+test/communicator_test
+test/configuration_test
+test/data_test
 

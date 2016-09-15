@@ -106,10 +106,8 @@ namespace configuration {
                      std::function<void(const std::string&,const int&)> got_error=default_got_error,
                      std::function<void(const std::string&)> unsubscribed=default_unsubscribed
                      ) {
-      cm->Subscribe(key,got_message,got_error,unsubscribed);
-      return false;
+      return cm->Subscribe(key,got_message,got_error,unsubscribed);
     }
-
 
     
     const int& DataConnectionStatus() { return dm->connection_status; };

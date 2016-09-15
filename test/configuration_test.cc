@@ -46,18 +46,12 @@ TEST (Connection, ConnectionFail) {
 
 
 TEST (UploadConfig, ValidConfiguration) {
-
-  std::cout << "read config from file: " << (path+instrument_file) << std::endl;
-
   std::string in = read_config_file((path+instrument_file).c_str()); 
-  
-  std::cout << in << std::endl;
   {
     CM c(redis_server,redis_port);
     DM d(redis_server,redis_port,c);
     d.Clear();
   }
-  
   EXPECT_TRUE(cs.AddConfig(in));
 }
 
@@ -71,6 +65,140 @@ TEST (UploadConfig, RecordNotPresent) {
   EXPECT_TRUE(cs.AddConfig(in));
 }
 
+
+TEST (Query, KeyValue) {
+  // an existing hash key must return a vector containing one element
+  std::string key("instrument1:sources:motor2:type");
+  EXPECT_EQ( cs.Query(key).size(), 1 );
+  EXPECT_EQ( cs.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  EXPECT_NE( cs.Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
+  
+   //  a non-exising hash key must return an empty vector
+  EXPECT_EQ( cs.Query("instrument1:sources:motor4:notype").size(), 0 );
+}
+
+TEST (Query, MultipleValues) {
+  std::vector<std::string> expect_failure = { "type","address","something else"};
+  std::vector<std::string> expect_success = { "type","address"};
+  std::vector<std::string> content;
+
+  // a non-exising hash key must return an empty vector
+  content = cs.Query("instrument1:sources:nomotor");
+  EXPECT_TRUE( content.size() == 0 );
+
+  content = cs.Query("instrument1:sources:motor4");
+  // an existing set key must return a vector containing at least one element
+  EXPECT_TRUE( content.size() != 0  );
+  // test set length and content
+  EXPECT_EQ( content.size(), expect_success.size() );
+
+  for( auto& s : expect_success)
+    EXPECT_TRUE( std::any_of(content.begin(), content.end(), [&](std::string c){return c==s;}) );
+
+  EXPECT_FALSE( content.size() == expect_failure.size() );
+  bool is_true = true;
+  for( auto& s : expect_failure)
+    is_true &= std::any_of(content.begin(), content.end(), [&](std::string c){return c==s;});
+
+  EXPECT_FALSE( is_true);
+}
+
+
+TEST (UpdateConfig, KeyValue) {
+  // test update success
+  EXPECT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
+  // test new value
+  EXPECT_NE( cs.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  EXPECT_EQ( cs.Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
+  // revert
+  EXPECT_TRUE( cs.Update("instrument1:sources:motor4:type","ca-motor") );
+  EXPECT_EQ( cs.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  
+}
+
+TEST (UpdateConfig, MultipleValues) {
+
+  std::vector<std::string> content;
+
+  EXPECT_EQ( cs.Query("instrument1:sources:motor1:address-backup").size() ,0);
+
+  // add field and test size
+  EXPECT_TRUE( cs.Update("instrument1:sources:motor1:address-backup","IOC:m1-backup") );
+  EXPECT_EQ( cs.Query("instrument1:sources:motor1:address-backup").size(), 1 );
+
+  // add new field to parent
+  EXPECT_TRUE( cs.Update("instrument1:x:sources:temp1:address","STC1") );
+
+  content = cs.Query("instrument1:x:sources:temp1");
+  EXPECT_TRUE( content.size() > 0);
+  EXPECT_FALSE( content.size() > 1);
+  
+  EXPECT_TRUE( cs.Update("instrument1:x:sources:temp1:type","pv-temp") );
+  content = cs.Query("instrument1:x:sources:temp1");
+  EXPECT_EQ( content.size(),2);
+}
+
+
+
+
+TEST (Delete, KeyValue) {
+
+  // test key existence
+  ASSERT_TRUE( cs.Query("instrument1:sources:motor4:type").size() > 0 );
+  // test delete success
+  EXPECT_TRUE( cs.Delete("instrument1:sources:motor4:type") );
+
+  // test key removed
+  EXPECT_FALSE( cs.Query("instrument1:sources:motor4:type").size() > 0 );
+
+  // test failure in deleting non-existing key
+  EXPECT_FALSE( cs.Delete("instrument1:sources:motor4:type") );
+
+}
+
+TEST (Delete, MultipleValues) {
+
+  ASSERT_TRUE( cs.Query("instrument1:sources").size() > 0 );
+
+  // test delete success
+  EXPECT_TRUE( cs.Delete("instrument1:sources") );
+
+  // test missing key
+  EXPECT_FALSE( cs.Query("instrument1:sources").size() > 0 );
+  // test other keys not affected
+  for (auto& key : cs.Query("instrument1") ) {
+    EXPECT_TRUE( cs.Query("instrument1:"+key).size() > 0 );
+  }
+  //  test failure in deleting non-existing key
+  EXPECT_FALSE( cs.Delete("instrument1:sources") );
+
+  // test deletion parent when empty
+  EXPECT_TRUE( cs.Delete("instrument1:experiment:id") );
+  EXPECT_TRUE( cs.Delete("instrument1:experiment:name") );
+  EXPECT_FALSE( (cs.Query("instrument1:experiment").size() > 0 ) );
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+TEST (Connection, Disconnect) {
+  EXPECT_EQ( cs.DataConnectionStatus(),       configuration::CONNECTED );
+  EXPECT_EQ( cs.PublisherConnectionStatus(),  configuration::CONNECTED );
+  EXPECT_EQ( cs.SubscriberConnectionStatus(), configuration::CONNECTED );  
+  EXPECT_TRUE( cs.Disconnect() );
+}
 
 
 

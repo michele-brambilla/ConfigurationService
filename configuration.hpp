@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <utility>
 
 #include <redis_configuration.hpp>
 
@@ -23,12 +24,19 @@ std::unique_ptr<T> make_unique( CONSTRUCTOR_ARGS&&... constructor_args )
 #endif // __cplusplus == 201402L
 
 namespace configuration {
+
+  static const int NOT_YET_CONNECTED = 0; // Starting state
+  static const int CONNECTED = 1;         // Successfully connected
+  static const int DISCONNECTED = 2;      // Successfully disconnected
+  static const int CONNECT_ERROR = 3;     // Error connecting
+  static const int DISCONNECT_ERROR = 4;  // Disconnected on error
+  static const int INIT_ERROR = 5;        // Failed to init data structures
   
   void default_got_message(const std::string&,const std::string&);
   void default_got_error(const std::string &,const int &);
   void default_unsubscribed(const std::string &);
   
-
+  
   template<typename DataManager, typename CommunicationManager>
   struct ConfigurationManager {
     //    ConfigurationManager() : cm(nullptr), dm(nullptr) { };
@@ -44,9 +52,19 @@ namespace configuration {
       log << "DataManager addr = " << dm.get() << std::endl;
     }
 
-    void Disconnect() {
+    bool Disconnect() {
+      return ( (dm->connection_status            != DISCONNECTED) ||
+               (cm->publisher_connection_status  != DISCONNECTED) ||
+               (cm->subscriber_connection_status != DISCONNECTED) );
 
     }
+
+    bool ConnectionStatus() {
+      return ( (dm->connection_status != CONNECTED) || (dm->connection_status != DISCONNECTED) ||
+               (cm->publisher_connection_status != CONNECTED) || (cm->publisher_connection_status != DISCONNECTED) ||
+               (cm->subscriber_connection_status != CONNECTED) || (cm->subscriber_connection_status != DISCONNECTED) );
+    }
+
     
     bool AddConfig(const std::string& conf) {
       bool success = dm->AddConfig(conf);
@@ -55,18 +73,25 @@ namespace configuration {
       return success;
     }
 
+    std::vector<std::string> Query(const std::string& key) {
+      std::vector<std::string> data = dm->Query(key);
+      if(data.size() == 0)
+        log << "Warning: empty key (" << key << ")" << std::endl;
+      return data;
+    }
+    
     bool Update(const std::string& key, const std::string& value) {
       bool success = dm->Update(key,value);
       if(!success)
         log << "Error: can't update " << key << std::endl;
-      return false;
+      return success;
     }
       
     bool Delete(const std::string& key) {
       bool success = dm->Delete(key);
       if(!success)
         log << "Error: can't delete " << key << std::endl;
-      return false;
+      return success;
     }
 
     bool Notify() {
@@ -81,10 +106,15 @@ namespace configuration {
                      std::function<void(const std::string&,const int&)> got_error=default_got_error,
                      std::function<void(const std::string&)> unsubscribed=default_unsubscribed
                      ) {
-
-      return cm->Subscribe(key,got_message,got_error,unsubscribed);
+      cm->Subscribe(key,got_message,got_error,unsubscribed);
+      return false;
     }
 
+
+    
+    const int& DataConnectionStatus() { return dm->connection_status; };
+    const int& PublisherConnectionStatus() { return cm->publisher_connection_status; };
+    const int& SubscriberConnectionStatus() { return cm->subscriber_connection_status; };
     
   private:
     std::unique_ptr<CommunicationManager> cm;

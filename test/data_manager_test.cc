@@ -192,20 +192,13 @@ TEST (DataManager, DeleteSet) {
 }
 
 
-// TEST (DataManager, Updates) {
-//   // DM< FCM> dm(redis_server,redis_port,comm);
-//   // test updates initially void
-//   EXPECT_TRUE( dm.UpdatesList().size() == 0 );
-//   dm.AddConfig( read_config_file((path+instrument_file).c_str()) );
-//   EXPECT_TRUE( dm.Update("instrument1:sources:motor4:type","new-ca-motor") );
-//   // test updates existence
-//   EXPECT_TRUE( dm.UpdatesList().size() > 0 );
-//   // test delete success
-//   FCM c;
-//   EXPECT_TRUE( dm.Notify<FCM>(c) );
-//   // test updates empty after notification
-//   EXPECT_FALSE( dm.UpdatesList().size() > 0 );
-// }
+
+
+
+
+
+
+
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

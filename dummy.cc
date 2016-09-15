@@ -206,31 +206,33 @@ void goodbye(const std::string& s,const std::string& r)
   std::cout << "Goodbye " << s << " " << r << '\n';
 }
 int main() {
-  int n;
-  auto f = std::bind(counting_got_message,
-                     std::placeholders::_1,
-                     std::placeholders::_2,
-                     std::ref(n));
-  f("a","b");
-  int y = 5;
-  auto h = std::bind(multiply, std::cref(y), std::placeholders::_1);
-  for (int i = 0; i < 10; i++)
-    {
-      std::cout << "5 * " << i << " = " << h(i) << std::endl;
-    }
+  // int n;
+  // auto f = std::bind(counting_got_message,
+  //                    std::placeholders::_1,
+  //                    std::placeholders::_2,
+  //                    std::ref(n));
+  // f("a","b");
+  // int y = 5;
+  // auto h = std::bind(multiply, std::cref(y), std::placeholders::_1);
+  // for (int i = 0; i < 10; i++)
+  //   {
+  //     std::cout << "5 * " << i << " = " << h(i) << std::endl;
+  //   }
 
-  std::string str("World");
-  std::function<void(const std::string&)>  g = std::bind(goodbye, std::ref(str) , std::placeholders::_1);
-  g("crudele");
+  // std::string str("World");
+  // std::function<void(const std::string&)>  g = std::bind(goodbye, std::ref(str) , std::placeholders::_1);
+  // g("crudele");
   
   // RedisCommunicator cm(redis_server,redis_port);
+  // std::cout << cm.Subscribe("message:*") << std::endl;
+  
   // cm.Publish("message:1","three");
   // cm.Disconnect();
   // std::cout << cm.Reconnect() << std::endl;
 
   // //  std::function<void(int)>
   
-  //  RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
+  //RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
 
 
   // while(1) {
@@ -241,14 +243,17 @@ int main() {
   // }
 
 
-  // configuration::ConfigurationManager<D,C> config(redis_server,redis_port,
-  //                                                 redis_server,redis_port);
+  configuration::ConfigurationManager<D,C> config(redis_server,redis_port,
+                                                  redis_server,redis_port);
 
+
+  
 
   // config.AddConfig(read_config_file("../sample/example_instrument.js"));
 
-  // config.Subscribe("instrument:user");
-
+  std::cout << config.Subscribe("message:*") << std::endl;
+  std::cout << (config.SubscriberConnectionStatus()==configuration::CONNECTED ? "ok" : "bad") << std::endl;
+  
 
   
   //  configuration::Init(redis_server,redis_port);

@@ -112,7 +112,7 @@ TEST (Query, MultipleValues) {
 }
 
 
-TEST (UpdateConfig, KeyValue) {
+TEST (Update, KeyValue) {
   // test update success
   EXPECT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
   // test new value
@@ -124,7 +124,7 @@ TEST (UpdateConfig, KeyValue) {
   
 }
 
-TEST (UpdateConfig, MultipleValues) {
+TEST (Update, MultipleValues) {
 
   std::vector<std::string> content;
 
@@ -274,63 +274,81 @@ TEST (Communications, NonSubscribedTopics) {
 }
 
 
-TEST (CommunicatorManager, SubscribeMultipleTopics) {
+TEST (Communications, SubscribeMultipleTopics) {
   CM publisher(redis_server,redis_port);
 
-  ASSERT_TRUE( cs.Subscribe("message:*") );
+  int n_recv = 0;
+  auto f = std::bind(counting_got_message,
+                     std::placeholders::_1,
+                     std::placeholders::_2,
+                     std::ref(n_recv));
+  
+  ASSERT_TRUE( cs.Subscribe("message:*",f) );
 
   // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   
-  // std::vector<std::string> status = {"a","u","d"};
-  // for(int i = 0; i < num_test_msg;++i) {
-  //   publisher.Publish(std::string("message:1"),status[i%3]);
-  //   publisher.Publish(std::string("message:2"),status[i%3]);
-  //   publisher.Publish(std::string("message:3"),status[i%3]);
-  //   publisher.Notify();
-  // }
-  // // after 1 sec you can be confident that all messages arrived
-  // std::this_thread::sleep_for(std::chrono::seconds(1));
-  // EXPECT_EQ(listener.NumRecvMessages(),num_test_msg*3);
+  std::vector<std::string> status = {"a","u","d"};
+  for(int i = 0; i < num_test_msg;++i) {
+    publisher.Publish(std::string("message:1"),status[i%3]);
+    publisher.Notify();
+    publisher.Publish(std::string("message:2"),status[i%3]);
+    publisher.Notify();
+    publisher.Publish(std::string("message:3"),status[i%3]);
+    publisher.Notify();
+  }
+
+  // after 1 sec you can be confident that all messages arrived
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  EXPECT_EQ(n_recv,num_test_msg*3);
   
 }
 
 
 
-// TEST (CommunicatorManager, AddMessages) {
-//   CM cm(redis_server,redis_port);
-//   EXPECT_EQ(cm.NumMessages(),0);
-//   std::vector<std::string> status = {"a","u","d"};
-//   for(int i = 0; i < num_test_msg;++i)
-//     EXPECT_TRUE( cm.Publish(std::to_string(i),status[i%3]) );
-//   EXPECT_EQ(cm.NumMessages(),num_test_msg);
+TEST (Communications, Notify) {
+
+  int n_recv = 0;
+  auto f = std::bind(counting_got_message,
+                     std::placeholders::_1,
+                     std::placeholders::_2,
+                     std::ref(n_recv));
+  
+  ASSERT_TRUE( cs.Subscribe("instrument1:sources:motor4:type",f) );
+  ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
+  EXPECT_TRUE( cs.Notify() );
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  EXPECT_EQ( n_recv,1 );
+
+  ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","IOC:ca-motor") );
+  EXPECT_TRUE( cs.Notify() );
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  EXPECT_EQ( n_recv,2 );
+  
+}
+
+
+// TEST (Communications, Notify2) {
+
+//   int n_recv = 0;
+//   auto f = std::bind(counting_got_message,
+//                      std::placeholders::_1,
+//                      std::placeholders::_2,
+//                      std::ref(n_recv));
+  
+//   ASSERT_TRUE( cs.Subscribe("instrument1:sources:motor4:*",f) );
+//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
+//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:address","IOC:ca-motor") );
+//   EXPECT_TRUE( cs.Notify() );
+
+//   std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+//   EXPECT_EQ( n_recv,2 );
+
+  
 // }
-
-// TEST (CommunicatorManager, Notify) {
-//   CM cm(redis_server,redis_port);
-//   std::vector<std::string> status = {"a","u","d"};
-//   for(int i = 0; i < num_test_msg;++i) {
-//     cm.Publish(std::string("message:")+std::to_string(i),status[i%3]);
-//   }
-//   EXPECT_TRUE( cm.Notify() );
-//   EXPECT_EQ(cm.NumMessages(),0);
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 TEST (Connection, Disconnect) {
   EXPECT_EQ( cs.DataConnectionStatus(),       configuration::CONNECTED );

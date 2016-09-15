@@ -403,19 +403,22 @@ namespace configuration {
                      std::function<void(const std::string&)> unsubscribed
                      ) override {
 
+        std::cout << "called subscribe (3) " << std::endl;
         auto subscribed = [&](const std::string& topic) {
           this->log << "> Subscribed to " << topic << std::endl;
         };
 
-        if ( (key).find("*")!=std::string::npos)
+        if ( (key).find("*")!=std::string::npos) {
+          std::cout << "called psubscribe " << std::endl;
           subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
-        else
+        }
+        else {
           subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-        std::set<std::string> topic_list = subscriber.subscribedTopics();	
-        if( topic_list.find(key) == topic_list.end() )
-          return false;
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+          std::set<std::string> topic_list = subscriber.subscribedTopics();	
+          if( topic_list.find(key) == topic_list.end() )
+            return false;
+        }
         
         return true;
       }

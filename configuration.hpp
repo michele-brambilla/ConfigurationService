@@ -98,7 +98,7 @@ namespace configuration {
       bool success = cm->Notify();
       if(!success)
         log << "Error: can't notify " << std::endl;
-      return false;
+      return success;
     }
 
     bool Subscribe(const std::string& key,

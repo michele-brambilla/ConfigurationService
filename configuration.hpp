@@ -44,6 +44,10 @@ namespace configuration {
       log << "DataManager addr = " << dm.get() << std::endl;
     }
 
+    void Disconnect() {
+
+    }
+    
     bool AddConfig(const std::string& conf) {
       bool success = dm->AddConfig(conf);
       if(!success)

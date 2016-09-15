@@ -165,10 +165,38 @@ std::string read_config_file(const char* s) {
   return config;
 }
 
+
+
+void redis_connection_callback(int status, int& output) {
+  if( status == redox::Redox::CONNECTED)
+    std::cout << "Dummy connection status: " << status << std::endl;
+  if( status == redox::Redox::DISCONNECTED)
+    std::cout << "Dummy disconnected " << std::endl;
+  output = status;
+  return;
+}
+
+
+
+
+void dummy_connection_callback(int status) {
+  if( status == redox::Redox::CONNECTED)
+    std::cout << "Dummy connection status: " << status << std::endl;
+  if( status == redox::Redox::DISCONNECTED)
+    std::cout << "Dummy disconnected " << std::endl;
+  return;
+}
+
 int main() {
 
-  // RedisCommunicator cm(redis_server,redis_port);
-  // RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
+  RedisCommunicator cm(redis_server,redis_port);
+
+  // cm.Disconnect();
+  // std::cout << cm.Reconnect() << std::endl;
+
+  // //  std::function<void(int)>
+  
+  RedisDataManager<RedisCommunicator> dm(redis_server,redis_port,cm);
 
 
   // while(1) {
@@ -179,25 +207,44 @@ int main() {
   // }
 
 
-  configuration::ConfigurationManager<D,C> config(redis_server,redis_port,
-                                                  redis_server,redis_port);
+  // configuration::ConfigurationManager<D,C> config(redis_server,redis_port,
+  //                                                 redis_server,redis_port);
 
 
-  config.AddConfig(read_config_file("../sample/example_instrument.js"));
+  // config.AddConfig(read_config_file("../sample/example_instrument.js"));
 
-  config.Subscribe("instrument:user");
+  // config.Subscribe("instrument:user");
 
-  while(1) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-  }
 
   
   //  configuration::Init(redis_server,redis_port);
   
   
-  // //  Redox rdx;
-  // if( !rdx.connect(address) )
-  //   throw runtime_error("Can't connect to REDIS server");
+  // redox::Redox rdx;
+  // // rdx.connect(redis_server,redis_port,dummy_connection_callback);
+
+  // // std::this_thread::sleep_for(std::chrono::seconds(1));
+
+
+  
+  // int connection_status;
+  // rdx.connect(redis_server,redis_port,
+  //             std::bind(redis_connection_callback,std::placeholders::_1, std::ref(connection_status)));
+  // std::cout << connection_status << std::endl;
+  // rdx.disconnect();
+  // std::cout << connection_status << std::endl;
+    
+  // bool ok = false;
+  // int counter = 0;
+  // while( (ok = rdx.connect("localhost") ) == false  ) {
+  //   std::this_thread::sleep_for(std::chrono::seconds(1));
+  //   rdx.disconnect();
+  //   std::this_thread::sleep_for(std::chrono::seconds(1));
+  //   std::cout << counter++ << std::endl;
+  // }
+  
+  // if( !ok )
+  //   throw std::runtime_error("Can't connect to REDIS server");
   
   // // auto got_reply = [](Command<vector<string> >& c) {
   // //   cerr << "Command has error code " << c.status() << endl;

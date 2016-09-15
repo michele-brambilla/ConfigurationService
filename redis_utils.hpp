@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
+#include <chrono>
 
 #include <redox.hpp>
 
@@ -62,8 +63,15 @@ namespace configuration {
     }
 
 
-
     
+    bool TryConnect(redox::Redox&,
+                    const std::string&,
+                    const int&,
+                    const int& Retry = 10);
+
+    void redis_connection_callback(int,int&);
+
+
   } // namespace utils
   
 

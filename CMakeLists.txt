@@ -8,7 +8,7 @@ set (ConfigurationService_VERSION_MINOR 1)
 
 
 set (CMAKE_CXX_FLAGS "-std=c++11 -pthread -O3 -Wno-unsupported-friend")
-set (CMAKE_CXX_FLAGS_DEBUG "-std=c++11 -O0 -pthread -Wall")
+set (CMAKE_CXX_FLAGS_DEBUG "-std=c++11 -O0 -pthread -Wall -ggdb")
 
 
 ## add the binary tree to the search path for include files
@@ -21,8 +21,13 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/redox")
 
 link_directories("${PROJECT_SOURCE_DIR}/redox/build")
 
-add_executable (dummy dummy.cc configuration.cc redis_configuration.cc) 
-target_link_libraries( dummy redox)
+add_library( configmanager configuration.cc
+  redis_configuration.cc redis_utils.cc )
+
+add_executable (dummy dummy.cc) 
+
+
+target_link_libraries( dummy redox configmanager)
   
 include( CTest )
 

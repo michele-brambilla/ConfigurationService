@@ -45,7 +45,6 @@ TEST (DataManager, ValidString) {
 TEST (DataManager, AddConfig) {
   //  DM dm(redis_server,redis_port,comm);
   dm.Clear();
-
   EXPECT_TRUE( dm.AddConfig( read_config_file((path+instrument_file).c_str()) ) );
 }
 

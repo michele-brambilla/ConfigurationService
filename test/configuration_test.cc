@@ -37,7 +37,18 @@ const int redis_port = 6379;
 
 ConfigurationService cs(redis_server.c_str(),redis_port,redis_server.c_str(),redis_port);
 
+TEST (Connection, ConnectionOK) {
+  ASSERT_NO_THROW(ConfigurationService(redis_server.c_str(),redis_port,redis_server.c_str(),redis_port));
+}
+TEST (Connection, ConnectionFail) {
+  ASSERT_ANY_THROW(ConfigurationService("localhost",redis_port,redis_server.c_str(),redis_port));
+}
+
+
 TEST (UploadConfig, ValidConfiguration) {
+
+  std::cout << "read config from file: " << (path+instrument_file) << std::endl;
+
   std::string in = read_config_file((path+instrument_file).c_str()); 
   
   std::cout << in << std::endl;

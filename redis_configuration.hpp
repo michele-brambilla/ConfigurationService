@@ -24,17 +24,37 @@ namespace configuration {
     struct RedisDataManager  : public DataManager
     {
       typedef RedisDataManager self_t;
-
+      int connection_status;
+      
       RedisDataManager(const std::string& redis_server,
                        const int& redis_port,
                        Communicator& communicator,
-                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal), log(logger), updates(communicator) {
-        if( !rdx.connect(redis_server, redis_port) ) {
+                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal),
+                                                         log(logger), updates(communicator) {
+        
+        rdx.connect(redis_server, redis_port,
+                    std::bind(utils::redis_connection_callback,
+                              std::placeholders::_1,
+                              std::ref(connection_status)));
+        
+        if( connection_status != redox::Redox::CONNECTED ) {
           log << "Can't connect to REDIS server\n";
-          throw std::runtime_error("Can't connect to REDIS server");
+          throw std::runtime_error("Can't connect to REDIS server: error"+std::to_string(connection_status));
         }
+        
       };
+      
+      ~RedisDataManager() {
+        rdx.disconnect();
+      }
 
+      void Disconnect() {
+        rdx.disconnect();
+        if( connection_status != redox::Redox::DISCONNECTED ) {
+          throw std::runtime_error("Can't disconnect from REDIS server: error "+std::to_string(connection_status));
+        }
+      }
+      
       void Dump(std::ostream& os=std::cout) {
         std::cout << "DUMP " << std::endl;
         utils::typelist::KEYS_t result;
@@ -54,14 +74,13 @@ namespace configuration {
       void Clear() override { rdx.command<std::string>({"FLUSHALL"}); }
 
       redox::Redox& redox() { return rdx; } 
-     
+
     private:
 
       redox::Redox rdx;
       std::ostream& log;
       Communicator& updates;
       
-
       bool KeyExists (const std::string& key) override {
         std::string s="KEYS "+key;
         utils::typelist::KEYS_t result;
@@ -248,31 +267,54 @@ namespace configuration {
     struct RedisCommunicator : public Communicator {
       static int MaxStoredMessages;
       static int NotificationTimeout;
+      int publisher_connection_status;
+      int subscriber_connection_status;
       
-      RedisCommunicator(const std::string& redis_server,
-                        const int& redis_port=6379,
+      RedisCommunicator(const std::string& server,
+                        const int& port=6379,
                         std::ostream& logger=std::cerr,
                         redox::log::Level redox_loglevel=redox::log::Level::Fatal) 
         : publisher(logger,redox_loglevel), log(logger),
-          last_notify_time(std::chrono::system_clock::now())
-          //          t(std::thread(&RedisCommunicator::TimedNotification,this))
+          last_notify_time(std::chrono::system_clock::now()),
+          redis_server(server),
+          redis_port(port)
       {
-        if( !publisher.connect(redis_server, redis_port) ) {
-          log << "Publisher can't connect to REDIS\n";
+        publisher.connect(redis_server, redis_port,
+                          std::bind(utils::redis_connection_callback,
+                                    std::placeholders::_1,
+                                    std::ref(publisher_connection_status)));
+        subscriber.connect(redis_server, redis_port,
+                           std::bind(utils::redis_connection_callback,
+                                     std::placeholders::_1,
+                                     std::ref(subscriber_connection_status)));
+        if( (publisher_connection_status != redox::Redox::CONNECTED) ||
+            (subscriber_connection_status != redox::Redox::CONNECTED) ) {
+          log << "Communicator can't connect to REDIS\n";
           throw std::runtime_error("Can't connect to REDIS server");
         }
-        if( !subscriber.connect(redis_server, redis_port) ) {
-          log << "Subscriber can't connect to REDIS\n";
-          throw std::runtime_error("Can't connect to REDIS server");
-        }
+
       }
 
       ~RedisCommunicator() {
+        subscriber.disconnect();
+        publisher.disconnect();
         keep_counting = false;
         if(t.joinable())
           t.join();
       }
 
+
+      void Disconnect() {
+        publisher.disconnect();
+        subscriber.disconnect();
+        if(  (publisher_connection_status != redox::Redox::DISCONNECTED) ||
+             (subscriber_connection_status != redox::Redox::DISCONNECTED) ) {
+          throw std::runtime_error("Can't disconnect from REDIS server: error "+
+                                   std::to_string(publisher_connection_status)+","+
+                                   std::to_string(subscriber_connection_status) );
+        }
+      }
+      
       bool Notify() override {
         std::string cmd = "PUBLISH ";
         int nclients;
@@ -441,6 +483,21 @@ namespace configuration {
         return s;
       }
 
+      bool Reconnect() {
+
+        publisher.connect(redis_server, redis_port,
+                          std::bind(utils::redis_connection_callback,
+                                    std::placeholders::_1,
+                                    std::ref(publisher_connection_status)));
+        subscriber.connect(redis_server, redis_port,
+                           std::bind(utils::redis_connection_callback,
+                                     std::placeholders::_1,
+                                     std::ref(subscriber_connection_status)));
+
+        return ( (publisher_connection_status != redox::Redox::CONNECTED) &&
+                 (subscriber_connection_status != redox::Redox::CONNECTED) ) ;
+      }
+      
       int NumMessages() const { return updates.size(); }
       int NumRecvMessages() const { return total_recv_messages; }
       bool keep_counting = true;
@@ -454,6 +511,9 @@ namespace configuration {
 
       std::chrono::system_clock::time_point last_notify_time;
       std::thread t;
+
+      std::string redis_server;
+      int redis_port;
       
       void TimedNotification() {
         while(this->keep_counting) {
@@ -467,6 +527,10 @@ namespace configuration {
         }
         log << "TimedNotification terminated\n";
       }
+
+      
+      
+
       
     };
     

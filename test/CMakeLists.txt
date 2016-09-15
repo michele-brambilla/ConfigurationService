@@ -4,9 +4,9 @@ include_directories (
   ${TEST_SOURCE_DIR}
   ) 
 
-add_executable (communicator_test communicator_test.cc ${PROJECT_SOURCE_DIR}/redis_configuration.cc) 
+add_executable (communicator_test communicator_test.cc) 
 add_executable (data_test data_manager_test.cc) 
-add_executable (configuration_test configuration_test.cc ${PROJECT_SOURCE_DIR}/redis_configuration.cc) 
+add_executable (configuration_test configuration_test.cc) 
 
 
 find_package(GTest REQUIRED)
@@ -14,15 +14,18 @@ include_directories(${GTEST_INCLUDE_DIR})
 
 target_link_libraries( configuration_test
 		       ${GTEST_BOTH_LIBRARIES}
-		       redox)
+		       redox
+                       configmanager)
 
 target_link_libraries( communicator_test
 		       ${GTEST_BOTH_LIBRARIES}
-		       redox)
+		       redox
+                       configmanager)
 
 target_link_libraries( data_test
 		       ${GTEST_BOTH_LIBRARIES}
-		       redox)
+		       redox
+                       configmanager)
 
 
 add_test(NAME communication_test COMMAND $<TARGET_FILE:communicator_test> WORKING_DIRECTORY ${TEST_SOURCE_DIR})

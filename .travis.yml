@@ -1,7 +1,6 @@
 language: cpp
 cache: bundler
-#sudo: required
-sudo: false
+sudo: required
 dist: trusty
 
 # OS

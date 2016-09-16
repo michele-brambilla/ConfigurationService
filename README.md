@@ -3,13 +3,23 @@
 ConfigurationService
 =============
 
-API library to deal with configuration service.
-Actions available:
-    * UploadConfig
-    * DumpConfig
-    * SubscribeToKey
-    * GetKeyValue
-    * UpdateKeyValue
+Stores and retrieve configuration information on a Redis db running on some
+server. Users can subscribe to channel(s) (key) to be informed on updates.
+By default the messages are stored and sent after a scheduled time, but
+notifications can be forced.
+
+Available actions:
+
+    * AddConfig: submit a new configuration on the server. The configuration has
+      to be in json format. If the configuration (or any subitem) exists,
+      reports an error and do not submit
+    * Query: returns the value of a key. It can be a single value (if there are
+      no subkeys) or a set of values (else)
+    * Update: update a key with a new value. If the key doesn't exists it is
+      added and its parent is updated with the new value
+    * Delete: delete a key and updates its parent
+    * Notify: force notification of changes to subscribed clients
+    * Subscribe: listen on a channel for related key changes
 
 Install
 -----
@@ -22,8 +32,7 @@ git submodule init
 git submodule update
 ```
 Building the submodules is part of the standard build system.
-Building system uses cmake, no particular options required. Caveat: the code makes use of c++11 standard. Works with gcc >= 4.8 and clang >= 3.5. So far it failed with gcc 4.7.
-
+Building system uses cmake, no particular options required. Caveat: the code makes use of c++11 standard. Works with gcc >= 4.8 and clang >= 3.5. 
 For testing purposes Googletest is required.
 
 
@@ -57,31 +66,55 @@ rpm -i hiredis-devel-0.12.1-1.el7.x86_64.rpm
 (this worked for me on the vagrant machine)
 
 
+
 Communicator
 ------------
 
 Base classes contained in ``basic_communicator.hpp".
+
 Actions available
+
     * Publish (topic,status)
     * Notify
     * Subscribe (topic) : arguments can be a
-      - string: topic
-      - string + std::function< void(const std::string &,const std::string &) >: topic +
-      callback on message received
-      > string + std::function< void(const std::string &,const std::string &) >+std::function< void(const std::string
-      &,const std::string &) >+std::function< void(const std::string &,const
-      std::string &) >: topic+callback on message+callback on subscribe+callback
-      on error
+      * topic
+      * topic + callback on message received
+      * topic + callback on message + callback on subscribe + callback on error
     * Unsubscribe:  arguments can be a
       - string: topic
-      - string +
-      std::function< void(const std::string &,const std::string &) >: topic +
-      callback on error
+      - topic + callback on error
 
+Opens a PUB/SUB communication channel to publish changes (NOT automatically
+sent) and notify (send, actually) updates. After subscription to a channel any
+update made by other clients is notified (and callbacks can trigger actions on event).
+
+DataManager
+------------
+
+Base classes contained in ``basic_data.hpp".
+Actions available:
+
+    * AddConfig (config)
+    * Update (key, new value)
+    * Delete (key)
+    * Query(key)
+
+Connects to a REDIS database, allow to upload a new configuration, change the
+value of a key or add a new one, delete a key or query the value (or set of
+values) of a key.
 
 Testing
 ------
 
-Run single test
+Available tests for CommunicatorManager, DataManager and Configuration
+manager. Requires *googletest-devel*.
 
-./test/data_test --gtest_filter="*UpdateSet*"
+    * Tests can be run using *ctest* or as standalone command line programs.
+    * Tests can't be run using *gtester*
+
+Note: a single test or a subset can be executed using
+*--gtest_filter="<string>"* :
+
+```./test/data_test --gtest_filter="*UpdateSet*"```
+
+Test are not part of the Travis-ci building, due to timeout cause failure

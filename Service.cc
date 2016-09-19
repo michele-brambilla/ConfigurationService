@@ -31,11 +31,8 @@ std::string read_config_file(const char* s) {
 
 
 
-std::string data_addr = "192.168.10.11";
-int data_port = 6379;
-
-std::string comm_addr = "192.168.10.11";
-int comm_port = 6379;
+std::string data_addr,comm_addr;
+int data_port,comm_port;
 
 typedef RedisCommunicator CM;
 typedef RedisDataManager<CM> DM;
@@ -107,6 +104,21 @@ int main(int argc, char **argv) {
 
 void parse(int argc, char **argv) {
 
+  //////////////////
+  // Reads info from configuration file
+  ifstream in("configuration_service.config");
+  std::string next, sep,value;
+  do {
+    in >> next >> sep >> value;
+    if( next == "data_addr" ) data_addr = value;
+    if( next == "data_port" ) std::istringstream(value) >> data_port;
+    if( next == "comm_addr" ) comm_addr = value;
+    if( next == "comm_port" ) std::istringstream(value) >> comm_port;
+  } while(!in.eof() );
+  
+
+  //////////////////
+  // Overloads configuration info with command line arguments (if any)
   int c,found;
   while( (c = getopt(argc, argv, "d:c:h")) != -1) {
     
@@ -125,7 +137,6 @@ void parse(int argc, char **argv) {
       break;
     case 'h':
       help();
-      /* getopt_long already printed an error message. */
       break;
     }
   }
@@ -145,7 +156,7 @@ void help() {
             << "-h\t\t\tthis help" << std::endl
             << std::endl;
 
-  std::cout << "USAGE:\n" << std::endl;
+  std::cout << "USAGE:\nTODO" << std::endl;
   
   exit(0);
 }

@@ -26,8 +26,11 @@ add_library( configmanager configuration.cc
 
 add_executable (dummy dummy.cc) 
 
+add_executable (Service Service.cc) 
 
 target_link_libraries( dummy redox configmanager)
+
+target_link_libraries( Service redox configmanager)
   
 include( CTest )
 

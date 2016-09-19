@@ -21,9 +21,23 @@ Available actions:
     * Notify: force notification of changes to subscribed clients
     * Subscribe: listen on a channel for related key changes
 
+The command line executable *Service* can be run as a standalone configuration
+manager or as an example.
+Usage:
+```
+./Service [ -d <data address>[:<data port>] -c <communication address>[:<communication port>] ]
+```
+After execution it expects one ot the previous commands (eventually with the
+key). Particular cases:
+
+    * query: key "*" dumps all the configuration (key-value(s) )
+    * update (u): requires <key>=<value>
+    * notify: no arguments
+    
+
 Install
 -----
-Some libraries are submodules:
+Requires submodules:
     * rapidjson
     * redox
 To clone correctly:
@@ -31,40 +45,14 @@ To clone correctly:
 git submodule init
 git submodule update
 ```
-Building the submodules is part of the standard build system.
-Building system uses cmake, no particular options required. Caveat: the code makes use of c++11 standard. Works with gcc >= 4.8 and clang >= 3.5. 
-For testing purposes Googletest is required.
-
-
-REDIS
------
-
-Requires hiredis, libev for redox
+Requires hiredis, libev 
 ```
 yum install hiredis-devel libev-devel
 ```
-If not present in the repository:
 
-    Download the latest epel-release rpm from
-    http://dl.fedoraproject.org/pub/epel/6/i386/
-    Install epel-release rpm:
-    # rpm -Uvh epel-release*rpm
-    Install hiredis rpm package:
-    # yum install hiredis
-
-
-Alternative: dowload it from pkg servers:
-```
-http://dl.fedoraproject.org/pub/epel/7/x86_64/h/hiredis-0.12.1-1.el7.x86_64.rpm
-http://dl.fedoraproject.org/pub/epel/7/x86_64/h/hiredis-devel-0.12.1-1.el7.x86_64.rpm
-```
-and install
-```
-rpm -i hiredis-0.12.1-1.el7.x86_64.rpm
-rpm -i hiredis-devel-0.12.1-1.el7.x86_64.rpm
-```
-(this worked for me on the vagrant machine)
-
+Building the submodules is part of the standard build system.
+Building system uses cmake, no particular options required. The code makes use of c++11 standard. Works with gcc >= 4.8 and clang >= 3.5. 
+For testing purposes Googletest is required.
 
 
 Communicator

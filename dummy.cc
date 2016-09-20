@@ -207,7 +207,34 @@ void goodbye(const std::string& s,const std::string& r)
 }
 int main() {
 
+  int status = -1;
+  std::shared_ptr<redox::Redox> conn = std::make_shared<redox::Redox>();
+
+  if( !conn->connect("localhost", 6379,std::bind(configuration::utils::redis_connection_callback,
+                                                 std::placeholders::_1,
+                                                 std::ref(status)) ) ) {
+    conn = std::make_shared<redox::Redox>();
+    conn->connect("192.168.10.11", 6379,std::bind(configuration::utils::redis_connection_callback,
+                                                 std::placeholders::_1,
+                                                  std::ref(status)) );
+  }
+
+
+
+
+  conn->disconnect();
   
+  // std::shared_ptr<redox::Redox> rdx = std::make_shared<redox::Redox>() ;
+  // if( !rdx->connect("localhost") )
+  //   std::cout << "connecting to " << rdx->connect("192.168.10.11") << std::endl;
+
+  
+  // std::this_thread::sleep_for(std::chrono::seconds(1));  
+  // rdx.disconnect();
+  // std::this_thread::sleep_for(std::chrono::seconds(1));  
+  
+  // if( !rdx.connect("localhost") )
+  //   std::cout << "connecting to " << rdx.connect("192.168.10.11") << std::endl;
 
   
 
@@ -249,16 +276,16 @@ int main() {
   // }
 
 
-  configuration::ConfigurationManager<D,C> config(redis_server,redis_port,
-                                                  redis_server,redis_port);
+  // configuration::ConfigurationManager<D,C> config(redis_server,redis_port,
+  //                                                 redis_server,redis_port);
 
 
   
 
-  // config.AddConfig(read_config_file("../sample/example_instrument.js"));
+  // // config.AddConfig(read_config_file("../sample/example_instrument.js"));
 
-  std::cout << config.Subscribe("message:*") << std::endl;
-  std::cout << (config.SubscriberConnectionStatus()==configuration::CONNECTED ? "ok" : "bad") << std::endl;
+  // std::cout << config.Subscribe("message:*") << std::endl;
+  // std::cout << (config.SubscriberConnectionStatus()==configuration::CONNECTED ? "ok" : "bad") << std::endl;
   
 
   

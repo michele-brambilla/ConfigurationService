@@ -304,31 +304,31 @@ TEST (Communications, SubscribeMultipleTopics) {
 
 
 
-TEST (Communications, Notify) {
+// TEST (Communications, Notify) {
 
-  int n_recv = 0;
-  auto f = std::bind(counting_got_message,
-                     std::placeholders::_1,
-                     std::placeholders::_2,
-                     std::ref(n_recv));
+//   int n_recv = 0;
+//   auto f = std::bind(counting_got_message,
+//                      std::placeholders::_1,
+//                      std::placeholders::_2,
+//                      std::ref(n_recv));
   
-  ASSERT_TRUE( cs.Subscribe("instrument1:sources:motor4:type",f) );
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//   ASSERT_TRUE( cs.Subscribe("instrument1:sources:motor4:type",f) );
+//   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  EXPECT_TRUE( cs.Notify() );
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
+//   std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//   EXPECT_TRUE( cs.Notify() );
+//   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  EXPECT_EQ( n_recv,1 );
+//   EXPECT_EQ( n_recv,1 );
 
-  ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","IOC:ca-motor") );
-  EXPECT_TRUE( cs.Notify() );
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","IOC:ca-motor") );
+//   EXPECT_TRUE( cs.Notify() );
+//   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  EXPECT_EQ( n_recv,2 );
+//   EXPECT_EQ( n_recv,2 );
   
-}
+// }
 
 
 // TEST (Communications, Notify2) {

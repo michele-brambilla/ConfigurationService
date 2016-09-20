@@ -70,6 +70,7 @@ namespace configuration {
                     const int& Retry = 10);
 
     void redis_connection_callback(int,int&);
+    void redis_connection_advanced(int,const bool&,std::function<void()>);
     
   } // namespace utils
   

@@ -58,9 +58,13 @@ int main(int argc, char **argv) {
 
     switch(action[0]) {
     case 'a':
-      std::cin >> value;
-      std::cout << value << std::endl;
-      cm.AddConfig(read_config_file(value.c_str()));
+      std::getline(std::cin,value);
+      if( value.find("{") != std::string::npos){
+        cm.AddConfig(value.c_str());
+      }
+      else {
+        cm.AddConfig(read_config_file(value.erase(0,1).c_str()));
+      }
       break;
     case 'q':
       std::cin >> value;

@@ -29,13 +29,14 @@ namespace configuration {
       RedisDataManager(const std::string& redis_server,
                        const int& redis_port,
                        Communicator& communicator,
-                       std::ostream& logger=std::cerr) : rdx(std::cout,redox::log::Level::Fatal),
-                                                         log(logger), updates(communicator) {
+                       std::ostream& logger=std::cerr) : address(redis_server), port(redis_port),
+        rdx(std::make_shared<redox::Redox>(std::cout,redox::log::Level::Fatal)),
+        log(logger), updates(communicator) {
         
-        rdx.connect(redis_server, redis_port,
-                    std::bind(utils::redis_connection_callback,
-                              std::placeholders::_1,
-                              std::ref(connection_status)));
+        auto f = std::bind(utils::redis_connection_callback,
+                           std::placeholders::_1,
+                           std::ref(connection_status));
+        rdx->connect(address, port, f );
         
         if( connection_status != redox::Redox::CONNECTED ) {
           log << "Can't connect to REDIS server\n";
@@ -45,21 +46,21 @@ namespace configuration {
       };
       
       ~RedisDataManager() {
-        rdx.disconnect();
+        rdx->disconnect();
       }
 
       void Disconnect() {
-        rdx.disconnect();
+        rdx->disconnect();
         if( connection_status != redox::Redox::DISCONNECTED ) {
-          throw std::runtime_error("Can't disconnect from REDIS server: error "+std::to_string(connection_status));
+          log << "Can't disconnect from REDIS server: error "+std::to_string(connection_status) << std::endl;
         }
       }
-      
+
       void Dump(std::ostream& os=std::cout) {
         std::cout << "DUMP " << std::endl;
         utils::typelist::KEYS_t result;
         std::string s = {"KEYS *"};
-        if( utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result) )
+        if( utils::ExecRedisCmd<utils::typelist::KEYS_t>(*rdx,s,result) )
           for( auto r : result) {
             os << r << std::endl;
             for( auto v : ReturnValue(r) )
@@ -67,24 +68,36 @@ namespace configuration {
             os << "\n";
           }
         else
-          throw std::runtime_error("No keys in db");
+          os << "No keys in database" << std::endl;
       }
-
       
-      void Clear() override { rdx.command<std::string>({"FLUSHALL"}); }
-
+      
+      void Clear() override { rdx->command<std::string>({"FLUSHALL"}); }
+      
       redox::Redox& redox() { return rdx; } 
 
     private:
 
-      redox::Redox rdx;
+      std::string address;
+      int port;
+      std::shared_ptr<redox::Redox> rdx;
       std::ostream& log;
       Communicator& updates;
+
+      void Reconnect() {
+        log << "Error: can't connect to redis database. Trying reconnect" << std::endl;
+        auto f = std::bind(utils::redis_connection_callback,
+                           std::placeholders::_1,
+                           std::ref(connection_status));
+        rdx = std::make_shared<redox::Redox>(std::cout,redox::log::Level::Fatal);
+        rdx->connect(address, port, f);
+      }
+
       
       bool KeyExists (const std::string& key) override {
         std::string s="KEYS "+key;
         utils::typelist::KEYS_t result;
-        utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,s,result);
+        utils::ExecRedisCmd<utils::typelist::KEYS_t>(*rdx,s,result);
         return result.size()>0;
       }
 
@@ -103,19 +116,19 @@ namespace configuration {
       }
       bool AddToHash(const std::string& key, const std::string& value) override {
         updates.Publish(key,"a");
-        return rdx.set(key,value);
+        return rdx->set(key,value);
       }
       
       bool RemoveFromParent(const std::string& parent,const std::string& name) override {
         bool is_ok = true;
         bool ok;
-        ok = utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,std::string("SREM ")+parent+" "+name);
+        ok = utils::ExecRedisCmd<utils::typelist::DEL_t>(*rdx,std::string("SREM ")+parent+" "+name);
         if( ok )
           updates.Publish(parent,"u");
         is_ok &= ok;
         // if parents gets empty, delete
         int nelem;
-        utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+parent,&nelem);
+        utils::ExecRedisCmd<int>(*rdx,std::string("SCARD ")+parent,&nelem);
         if (nelem == 0) 
           is_ok &=  (RemoveKey(parent) > 0) ;
         
@@ -124,9 +137,9 @@ namespace configuration {
       int RemoveChildren(const std::string& key) override {
         utils::typelist::KEYS_t children_list;
         std::string cmd="KEYS "+key+":*";
-        utils::ExecRedisCmd<utils::typelist::KEYS_t>(rdx,cmd,children_list);
+        utils::ExecRedisCmd<utils::typelist::KEYS_t>(*rdx,cmd,children_list);
         for( auto& c : children_list ) {
-          if ( utils::ExecRedisCmd<utils::typelist::DEL_t>(rdx,"DEL "+c) )
+          if ( utils::ExecRedisCmd<utils::typelist::DEL_t>(*rdx,"DEL "+c) )
             updates.Publish(c,"d");
         }          
         return children_list.size();
@@ -136,13 +149,13 @@ namespace configuration {
         //updates.push_back(std::pair<std::string,std::string>(key,"d"));   
         updates.Publish(key,"d");
         std::string key_type;
-        utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
+        utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
         bool is_ok = true;
         
         if(key_type == "set") {
           // remove children
           int nelem;
-          utils::ExecRedisCmd<int>(rdx,std::string("SCARD ")+key,&nelem);
+          utils::ExecRedisCmd<int>(*rdx,std::string("SCARD ")+key,&nelem);
           is_ok &= ( (RemoveChildren(key)>0 && nelem >0) ? true : false);
         }
         
@@ -152,7 +165,7 @@ namespace configuration {
         // std::string parent_value=key.substr(found+1);
         is_ok &= RemoveFromParent(key.substr(0,found),key.substr(found+1));
         bool ok;
-        is_ok &= (ok = utils::ExecRedisCmd<int>(rdx,std::string("DEL ")+key) );
+        is_ok &= (ok = utils::ExecRedisCmd<int>(*rdx,std::string("DEL ")+key) );
         if(ok) {
           updates.Publish(key,"d");
         }
@@ -164,14 +177,14 @@ namespace configuration {
       bool UpdateHashValue(const std::string& key,const std::string& value) override {
         std::string cmd = std::string("SET ")+key+" "+value;
         updates.Publish(key,"u");
-        return utils::ExecRedisCmd<std::string>(rdx,cmd);
+        return utils::ExecRedisCmd<std::string>(*rdx,cmd);
       }
 
 
       bool AddToParent(const std::string& key,const std::string& value) override {
         std::string cmd=std::string("SADD ")+key+" "+value;
         updates.Publish(key,"u");
-        return utils::ExecRedisCmd<int>(rdx,cmd);;
+        return utils::ExecRedisCmd<int>(*rdx,cmd);;
       }
 
       bool UpdateParent(const std::string& key) override {
@@ -198,17 +211,17 @@ namespace configuration {
         }
         
         std::string key_type;
-        utils::ExecRedisCmd<std::string>(rdx,std::string("TYPE ")+key,key_type);
+        utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
 
         if(key_type == "set") {
-          utils::ExecRedisCmd<utils::typelist::LIST_t>(rdx,std::string("SMEMBERS ")+key,result);
+          utils::ExecRedisCmd<utils::typelist::LIST_t>(*rdx,std::string("SMEMBERS ")+key,result);
           // removes eventual empty items
           result.erase( std::remove( result.begin(), result.end(), " " ), result.end() );
         }
         else
           if(key_type == "string") {
             std::string tmp;
-            utils::ExecRedisCmd<utils::typelist::VALUE_t>(rdx,std::string("GET ")+key,tmp);
+            utils::ExecRedisCmd<utils::typelist::VALUE_t>(*rdx,std::string("GET ")+key,tmp);
             result.push_back(tmp);
           }
           else {
@@ -235,7 +248,7 @@ namespace configuration {
             std::string s = "SADD "+ prefix+separator+std::string(it->name.GetString())+std::string(" ");
             for( auto v = it->value.MemberBegin();
                  v != it->value.MemberEnd(); ++v)
-              is_ok &= utils::ExecRedisCmd<utils::typelist::SADD_t>(rdx,s+v->name.GetString());
+              is_ok &= utils::ExecRedisCmd<utils::typelist::SADD_t>(*rdx,s+v->name.GetString());
             
             is_ok &= scan(it->value.MemberBegin(),
                           it->value.MemberEnd(),
@@ -245,7 +258,7 @@ namespace configuration {
             std::string s = "SET "+prefix+separator+std::string(it->name.GetString())+std::string(" ");
             s+= it->value.GetString();
             if(is_ok)
-              utils::ExecRedisCmd<utils::typelist::SET_t>(rdx,s);
+              utils::ExecRedisCmd<utils::typelist::SET_t>(*rdx,s);
             else
               log << "Key " << std::string(it->value.GetString()) << " exists, not added\n";
 
@@ -274,19 +287,22 @@ namespace configuration {
                         const int& port=6379,
                         std::ostream& logger=std::cerr,
                         redox::log::Level redox_loglevel=redox::log::Level::Fatal) 
-        : publisher(logger,redox_loglevel), log(logger),
+        : publisher(std::make_shared<redox::Redox>(logger,redox::log::Level::Fatal)),
+          subscriber(std::make_shared<redox::Subscriber>(logger,redox::log::Level::Fatal)),
+          log(logger),
           last_notify_time(std::chrono::system_clock::now()),
           redis_server(server),
           redis_port(port)
       {
-        publisher.connect(redis_server, redis_port,
-                          std::bind(utils::redis_connection_callback,
-                                    std::placeholders::_1,
-                                    std::ref(publisher_connection_status)));
-        subscriber.connect(redis_server, redis_port,
+        publisher->connect(redis_server, redis_port,
                            std::bind(utils::redis_connection_callback,
                                      std::placeholders::_1,
-                                     std::ref(subscriber_connection_status)));
+                                     std::ref(publisher_connection_status)));
+        subscriber->connect(redis_server, redis_port,
+                            std::bind(utils::redis_connection_callback,
+                                      std::placeholders::_1,
+                                      std::ref(subscriber_connection_status)));
+        
         if( (publisher_connection_status != redox::Redox::CONNECTED) ||
             (subscriber_connection_status != redox::Redox::CONNECTED) ) {
           log << "Communicator can't connect to REDIS\n";
@@ -295,8 +311,8 @@ namespace configuration {
       }
 
       ~RedisCommunicator() {
-        subscriber.disconnect();
-        publisher.disconnect();
+        subscriber->disconnect();
+        publisher->disconnect();
         keep_counting = false;
         if(t.joinable())
           t.join();
@@ -304,8 +320,8 @@ namespace configuration {
 
 
       void Disconnect() {
-        publisher.disconnect();
-        subscriber.disconnect();
+        publisher->disconnect();
+        subscriber->disconnect();
         if(  (publisher_connection_status != redox::Redox::DISCONNECTED) ||
              (subscriber_connection_status != redox::Redox::DISCONNECTED) ) {
           throw std::runtime_error("Can't disconnect from REDIS server: error "+
@@ -319,7 +335,7 @@ namespace configuration {
         int nclients;
         bool is_ok = true;
         for(auto& msg : updates) {
-          is_ok &= utils::ExecRedisCmd<int>(publisher,
+          is_ok &= utils::ExecRedisCmd<int>(*publisher,
                                             cmd+msg.first+" "+msg.second,
                                             &nclients);
           if( nclients == 0 )
@@ -360,9 +376,9 @@ namespace configuration {
         };
         
         if ( (key).find("*")!=std::string::npos)
-          subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
+          subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         else
-          subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
+          subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
         return is_ok;
@@ -381,12 +397,12 @@ namespace configuration {
 
         if ( (key).find("*")!=std::string::npos) {
           log << "called psubscribe " << std::endl;
-          subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
+          subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         }
         else {
-          subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
+          subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          std::set<std::string> topic_list = subscriber.subscribedTopics();	
+          std::set<std::string> topic_list = subscriber->subscribedTopics();	
           if( topic_list.find(key) == topic_list.end() )
             return false;
         }
@@ -404,20 +420,20 @@ namespace configuration {
         if ( found != std::string::npos) {
           std::string short_key(key);
           short_key.pop_back();
-          auto list = subscriber.psubscribedTopics();
+          auto list = subscriber->psubscribedTopics();
           if ( list.find(short_key) == list.end() )
             return false;
-          subscriber.punsubscribe(short_key.substr(0,found-1),got_error);
+          subscriber->punsubscribe(short_key.substr(0,found-1),got_error);
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          list = subscriber.psubscribedTopics();
+          list = subscriber->psubscribedTopics();
           if ( list.find(short_key) == list.end() )
             return false;
 
         }
         else {
-          subscriber.unsubscribe(key,got_error);
+          subscriber->unsubscribe(key,got_error);
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          for( auto& s : subscriber.subscribedTopics())
+          for( auto& s : subscriber->subscribedTopics())
             if( s == key )
               is_ok = false;
         }
@@ -426,20 +442,20 @@ namespace configuration {
       }
 
       std::set<std::string> ListTopics() {
-        std::set<std::string> s = subscriber.subscribedTopics();
-        s.insert(subscriber.psubscribedTopics().begin(),
-                 subscriber.psubscribedTopics().end()
+        std::set<std::string> s = subscriber->subscribedTopics();
+        s.insert(subscriber->psubscribedTopics().begin(),
+                 subscriber->psubscribedTopics().end()
                  );
         return s;
       }
 
       bool Reconnect() {
 
-        publisher.connect(redis_server, redis_port,
+        publisher->connect(redis_server, redis_port,
                           std::bind(utils::redis_connection_callback,
                                     std::placeholders::_1,
                                     std::ref(publisher_connection_status)));
-        subscriber.connect(redis_server, redis_port,
+        subscriber->connect(redis_server, redis_port,
                            std::bind(utils::redis_connection_callback,
                                      std::placeholders::_1,
                                      std::ref(subscriber_connection_status)));
@@ -452,8 +468,8 @@ namespace configuration {
       int NumRecvMessages() const { return total_recv_messages; }
       bool keep_counting = true;
     private:
-      redox::Redox publisher;
-      redox::Subscriber subscriber;
+      std::shared_ptr<redox::Redox> publisher;
+      std::shared_ptr<redox::Subscriber> subscriber;
       
       std::ostream& log;
       unsigned long int total_num_messages = 0;

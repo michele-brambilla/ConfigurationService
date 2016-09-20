@@ -162,7 +162,7 @@ TEST (CommunicatorManager, SubscribeMemberGotCallback) {
 
   configuration::communicator::ReceivedMessageCb got_cb;
 
-  EXPECT_TRUE( listener.Subscribe("message:1",got_cb.f) );
+  //  EXPECT_TRUE( listener.Subscribe("message:1",got_cb.f) );
 
   auto f1 = std::bind(&configuration::communicator::ReceivedMessageCb::got_message, &got_cb, std::placeholders::_1, std::placeholders::_2);
   EXPECT_TRUE( listener.Subscribe("message:1", f1) );
@@ -191,7 +191,11 @@ TEST (CommunicatorManager, SubscribeMembersCallback) {
   configuration::communicator::UnsubscribeCb uns_cb;
   configuration::communicator::SubscribeErrorCb err_cb;
 
-  EXPECT_TRUE( listener.Subscribe("message:1",got_cb.f,err_cb.f,uns_cb.f) );
+  auto f1 = std::bind(&configuration::communicator::ReceivedMessageCb::got_message, &got_cb, std::placeholders::_1, std::placeholders::_2);
+  auto f2 = std::bind(&configuration::communicator::SubscribeErrorCb::got_error,    &err_cb, std::placeholders::_1, std::placeholders::_2);
+  auto f3 = std::bind(&configuration::communicator::UnsubscribeCb::unsubscribed,    &uns_cb, std::placeholders::_1);
+
+  EXPECT_TRUE( listener.Subscribe("message:1",f1,f2,f3) );
   
   // // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));

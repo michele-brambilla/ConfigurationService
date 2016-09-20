@@ -102,7 +102,6 @@ namespace configuration {
         return is_ok;
       }
       bool AddToHash(const std::string& key, const std::string& value) override {
-        //        updates.push_back(std::pair<std::string,std::string>(key,"a"));
         updates.Publish(key,"a");
         return rdx.set(key,value);
       }
@@ -176,17 +175,18 @@ namespace configuration {
       }
 
       bool UpdateParent(const std::string& key) override {
+        log << "Update parents: " << key << std::endl;
         bool is_ok = true;
         std::size_t found = key.find_last_of(":");
+        if (found == std::string::npos ) return true;
         std::string parent_key=key.substr(0,found);
         std::string parent_value=key.substr(found+1);
-        if( !KeyExists(parent_key) ) {
-          is_ok &= UpdateParent(parent_key);
-          is_ok &= AddToParent(parent_key,parent_value);
-          return is_ok;
-        }
 
-        return AddToParent(parent_key,parent_value);
+        is_ok &= AddToParent(parent_key,parent_value);
+        if( KeyExists(parent_key) ) {
+          is_ok &= UpdateParent(parent_key);
+        }
+        return is_ok;
       }
 
       
@@ -332,7 +332,7 @@ namespace configuration {
       }
 
       bool Publish(const std::string& key,const std::string& status) override {
-        updates[key]=status;
+        updates.insert(std::pair<std::string,std::string>(key,status) );
         if(updates.size() > MaxStoredMessages) {
           log << "Max number of stored messages ("+std::to_string(MaxStoredMessages)+") reached, proceed to notify"
               << std::endl;
@@ -403,13 +403,13 @@ namespace configuration {
                      std::function<void(const std::string&)> unsubscribed
                      ) override {
 
-        std::cout << "called subscribe (3) " << std::endl;
+        log << "called subscribe (3) " << std::endl;
         auto subscribed = [&](const std::string& topic) {
           this->log << "> Subscribed to " << topic << std::endl;
         };
 
         if ( (key).find("*")!=std::string::npos) {
-          std::cout << "called psubscribe " << std::endl;
+          log << "called psubscribe " << std::endl;
           subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         }
         else {

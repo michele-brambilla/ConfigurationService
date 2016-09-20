@@ -6,5 +6,12 @@
 
 typedef std::string key_type;
 typedef std::vector<std::string> value_type;
-typedef typename std::map<key_type,value_type >::iterator iterator;
-typedef typename std::map<key_type,value_type >::const_iterator const_iterator;
+
+namespace container {
+  
+  typedef typename std::multimap<key_type,value_type > container_t;
+  typedef typename container_t::iterator iterator;
+  typedef typename container_t::const_iterator const_iterator;
+  typedef typename container_t::value_type value_type;
+
+}

@@ -13,9 +13,9 @@ namespace configuration {
     // Base class for message receive callbacks
     struct ReceivedMessageCb {
       ReceivedMessageCb() : num_msg(0) {
-        f = [this](std::string const & x, std::string const & y) {
-          this->got_message(x, y);
-        };
+        // f = [this](std::string const & x, std::string const & y) {
+        //   this->got_message(x, y);
+        // };
       };
       
       std::function<void(std::string const &, std::string const &)> f;
@@ -31,9 +31,9 @@ namespace configuration {
     // Base class for unsubscribe callbacks
     struct UnsubscribeCb {
       UnsubscribeCb() {
-        f = [this](std::string const & x) {
-          this->unsubscribed(x);
-        };
+        // f = [this](std::string const & x) {
+        //   this->unsubscribed(x);
+        // };
       };      
       std::function<void(std::string const &)> f;
       virtual void unsubscribed(const std::string & t)  {
@@ -45,9 +45,9 @@ namespace configuration {
 
     struct SubscribeErrorCb {
       SubscribeErrorCb() {
-        f = [this](std::string const & x, int const & y) {
-          this->got_error(x, y);
-        };
+        // f = [this](std::string const & x, int const & y) {
+        //   this->got_error(x, y);
+        // };
       };
       
       std::function<void(std::string const &, int const &)> f;
@@ -79,16 +79,16 @@ namespace configuration {
 
       // callback on message receive, unsubscription, subscription error
       virtual bool Subscribe(const std::string&,
-                             std::function< void(const std::string &,const std::string &) >,
-                             std::function< void(const std::string &,const int &) >,
-                             std::function< void(const std::string & ) >
+                             std::function< void(const std::string &,const std::string &) >, // got message
+                             std::function< void(const std::string &,const int &) >,         // got error
+                             std::function< void(const std::string & ) >                     // unsubscribe
                              ) { return false; }
 
       virtual bool Unsubscribe(const std::string&) { return false; }
       virtual bool Unsubscribe(const std::string&,std::function< void(const std::string &,const int &) >) { return false; }
       
     protected:
-      std::map<std::string,std::string> updates;
+      std::multimap<std::string,std::string> updates;
 
     };
 

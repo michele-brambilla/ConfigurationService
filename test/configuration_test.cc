@@ -191,7 +191,6 @@ TEST (Communications, SubscribeTopic) {
 
   CM publisher(redis_server,redis_port);
   int n_recv = 0;
-
   
   auto f = std::bind(counting_got_message,
                      std::placeholders::_1,
@@ -206,26 +205,26 @@ TEST (Communications, SubscribeTopic) {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   EXPECT_EQ(n_recv,1);
-
-  // a single notify corresponds to a single invocation of got_message
+  n_recv = 0;
+  
   for(int i = 0; i < num_test_msg;++i) {
     publisher.Publish(std::string("message:1"),std::to_string(i));
   }
   publisher.Notify();
   
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  EXPECT_EQ(n_recv,2);
-  
+  EXPECT_EQ(n_recv,num_test_msg);
+  n_recv = 0;
+    
   for(int i = 0; i < num_test_msg;++i) {
     publisher.Publish(std::string("message:1"),std::to_string(i));
     publisher.Notify();
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  EXPECT_EQ(n_recv,2+num_test_msg);
+  EXPECT_EQ(n_recv,num_test_msg);
 
   publisher.Disconnect();
-  
 }
 
 TEST (Communications, NonSubscribedTopics) {
@@ -248,8 +247,8 @@ TEST (Communications, NonSubscribedTopics) {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   EXPECT_EQ(n_recv,1);
+  n_recv=0;
 
-  // a single notify corresponds to a single invocation of got_message
   for(int i = 0; i < num_test_msg;++i) {
     publisher.Publish(std::string("message:1"),std::to_string(i));
     publisher.Publish(std::string("message:2"),std::to_string(i));
@@ -258,7 +257,8 @@ TEST (Communications, NonSubscribedTopics) {
   publisher.Notify();
   
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  EXPECT_EQ(n_recv,2);
+  EXPECT_EQ(n_recv,num_test_msg);
+  n_recv=0;
   
   for(int i = 0; i < num_test_msg;++i) {
     publisher.Publish(std::string("message:1"),std::to_string(i));
@@ -268,8 +268,8 @@ TEST (Communications, NonSubscribedTopics) {
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  EXPECT_EQ(n_recv,2+num_test_msg);
-  
+  EXPECT_EQ(n_recv,num_test_msg);
+
   publisher.Disconnect();
 }
 
@@ -291,12 +291,10 @@ TEST (Communications, SubscribeMultipleTopics) {
   std::vector<std::string> status = {"a","u","d"};
   for(int i = 0; i < num_test_msg;++i) {
     publisher.Publish(std::string("message:1"),status[i%3]);
-    publisher.Notify();
     publisher.Publish(std::string("message:2"),status[i%3]);
-    publisher.Notify();
     publisher.Publish(std::string("message:3"),status[i%3]);
-    publisher.Notify();
   }
+  publisher.Notify();
 
   // after 1 sec you can be confident that all messages arrived
   std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -315,7 +313,10 @@ TEST (Communications, Notify) {
                      std::ref(n_recv));
   
   ASSERT_TRUE( cs.Subscribe("instrument1:sources:motor4:type",f) );
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
   EXPECT_TRUE( cs.Notify() );
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 

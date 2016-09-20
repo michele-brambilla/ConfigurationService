@@ -68,6 +68,7 @@ TEST (CommunicatorManager, AutoNotify) {
   EXPECT_NE(cm.NumMessages(),10*CM::MaxStoredMessages);
 }
 
+
 TEST (CommunicatorManager, SubscribeSingleTopic) {
   CM publisher(redis_server,redis_port);
   CM listener(redis_server,redis_port);

@@ -206,6 +206,12 @@ void goodbye(const std::string& s,const std::string& r)
   std::cout << "Goodbye " << s << " " << r << '\n';
 }
 int main() {
+
+  
+
+  
+
+  
   // int n;
   // auto f = std::bind(counting_got_message,
   //                    std::placeholders::_1,

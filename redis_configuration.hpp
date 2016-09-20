@@ -292,7 +292,6 @@ namespace configuration {
           log << "Communicator can't connect to REDIS\n";
           throw std::runtime_error("Can't connect to REDIS server");
         }
-
       }
 
       ~RedisCommunicator() {
@@ -341,11 +340,10 @@ namespace configuration {
         total_num_messages++;
         return true;
       }
-      
 
-      bool Subscribe(const std::string& key) override {
+      bool Subscribe(const std::string& key) {
         bool is_ok = true;
-
+        
         auto got_message = [&](const std::string& topic, const std::string& msg) {
           total_recv_messages++;
           this->log << topic << ": " << msg << std::endl;
@@ -360,47 +358,20 @@ namespace configuration {
           this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
           is_ok = false;
         };
-
+        
         if ( (key).find("*")!=std::string::npos)
           subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
         else
           subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-        return is_ok;
-      }
-
-      bool Subscribe(const std::string& key,
-                     std::function<void(const std::string&,const std::string&)> got_message
-                     ) override {
-
-        bool is_ok = true;
-
-        auto subscribed = [&](const std::string& topic) {
-          this->log << "> Subscribed to " << topic << std::endl;
-        };
-        auto unsubscribed = [&](const std::string& topic) {
-          this->log << "> Unsubscribed from " << topic << std::endl;
-        };
-        auto got_error = [&](const std::string& topic, const int& id_error) {
-          this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
-          is_ok = false;
-        };
-
-        if ( (key).find("*")!=std::string::npos)
-          subscriber.psubscribe(key, got_message, subscribed, unsubscribed, got_error);
-        else
-          subscriber.subscribe(key, got_message, subscribed, unsubscribed, got_error);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
         
         return is_ok;
       }
-
+      
       bool Subscribe(const std::string& key,
                      std::function<void(const std::string&,const std::string&)> got_message,
-                     std::function<void(const std::string&,const int&)> got_error,
-                     std::function<void(const std::string&)> unsubscribed
+                     std::function<void(const std::string&,const int&)> got_error = default_got_error,
+                     std::function<void(const std::string&)> unsubscribed = default_unsubscribed
                      ) override {
 
         log << "called subscribe (3) " << std::endl;
@@ -423,33 +394,9 @@ namespace configuration {
         return true;
       }
 
-      bool Unsubscribe(const std::string& key) override {
-        bool is_ok = true;
-        auto got_error = [&](const std::string& topic, const int& id_error) {
-          this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
-          is_ok = false;
-        };
-
-        //////////
-        // more cases to be considered...
-        if ( key.find("*")!=std::string::npos) {
-          subscriber.punsubscribe(key,got_error);
-          is_ok = false;
-        }
-        else {
-          subscriber.unsubscribe(key,got_error);
-          std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          // test not subscribed to topic anymore
-          for( auto& s : subscriber.subscribedTopics())
-            if( s == key )
-              is_ok = false;
-        }
-        
-        return is_ok;
-      }
       
       bool Unsubscribe(const std::string& key,
-                       std::function<void(const std::string&,const int&)> got_error
+                       std::function<void(const std::string&,const int&)> got_error = default_got_error
                        ) override {
         bool is_ok = true;
         std::size_t found = key.find("*");
@@ -517,22 +464,31 @@ namespace configuration {
 
       std::string redis_server;
       int redis_port;
-      
+
       void TimedNotification() {
         while(this->keep_counting) {
-          std::this_thread::sleep_for(
-                                      std::chrono::seconds(NotificationTimeout));
-          // std::this_thread::sleep_until(last_notify_time+
-          //                               std::chrono::seconds(NotificationTimeout));
+          std::this_thread::sleep_for(std::chrono::seconds(NotificationTimeout));
           log << NotificationTimeout << "s elapsed, auto-notification will occur\n";
-          //          log << "value of keep counting = " << keep_counting << "\n";
           Notify();
         }
         log << "TimedNotification terminated\n";
       }
+      //([](const std::string& t,const std::string& c){ std::cerr << "== "<< t << " : " << c <<" ==" << std::endl; total_recv_messages++ })
+      
+      void count_got_message(const std::string & t,const std::string & c)  {
+        std::cerr << "== "<< t << " : " << c <<" ==" << std::endl;
+        this->total_recv_messages++;
+      } 
+      
 
-      
-      
+      // struct count_got_message {
+      //   count_got_message(int& other_n_recv_msg) : num_msg(other_n_recv_msg) { };
+      //   void got_message(const std::string & t,const std::string & c)  {
+      //     std::cerr << "== "<< t << " : " << c <<" ==" << std::endl;
+      //     num_msg++;
+      //   }
+      //   int& num_msg;
+      // };
 
       
     };

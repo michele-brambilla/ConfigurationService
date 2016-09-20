@@ -59,7 +59,8 @@ int main(int argc, char **argv) {
     switch(action[0]) {
     case 'a':
       std::cin >> value;
-      cm.AddConfig(read_config_file(value.c_str() ));
+      std::cout << value << std::endl;
+      cm.AddConfig(read_config_file(value.c_str()));
       break;
     case 'q':
       std::cin >> value;
@@ -156,7 +157,7 @@ void help() {
             << "-h\t\t\tthis help" << std::endl
             << std::endl;
 
-  std::cout << "USAGE:\nTODO" << std::endl;
+  std::cout << "USAGE:\n" << std::endl;
   
   exit(0);
 }

@@ -5,3 +5,6 @@
 [submodule "redox"]
 	path = redox
 	url = git@github.com:hmartiro/redox.git
+[submodule "cppzmq"]
+	path = cppzmq
+	url = https://github.com/zeromq/cppzmq.git

@@ -3,9 +3,9 @@
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
-#include <map>
 #include <functional>
 #include <algorithm>
+#include <future>
 
 #include <redis_utils.hpp>
 
@@ -279,7 +279,6 @@ namespace configuration {
     
     struct RedisCommunicator : public Communicator {
       static int MaxStoredMessages;
-      static int NotificationTimeout;
       int publisher_connection_status;
       int subscriber_connection_status;
       
@@ -290,7 +289,6 @@ namespace configuration {
         : publisher(std::make_shared<redox::Redox>(logger,redox::log::Level::Fatal)),
           subscriber(std::make_shared<redox::Subscriber>(logger,redox::log::Level::Fatal)),
           log(logger),
-          last_notify_time(std::chrono::system_clock::now()),
           redis_server(server),
           redis_port(port)
       {
@@ -308,14 +306,15 @@ namespace configuration {
           log << "Communicator can't connect to REDIS\n";
           throw std::runtime_error("Can't connect to REDIS server");
         }
+        t=std::move(std::thread(&RedisCommunicator::AutoNotification,this));
+        
       }
 
       ~RedisCommunicator() {
         subscriber->disconnect();
         publisher->disconnect();
         keep_counting = false;
-        if(t.joinable())
-          t.join();
+        t.join();
       }
 
 
@@ -341,20 +340,8 @@ namespace configuration {
           if( nclients == 0 )
             log << msg.first << ": no connected clients\n";
         }
-        last_notify_time = std::chrono::system_clock::now();
         updates.clear();
         return is_ok;
-      }
-
-      bool Publish(const std::string& key,const std::string& status) override {
-        updates.insert(std::pair<std::string,std::string>(key,status) );
-        if(updates.size() > MaxStoredMessages) {
-          log << "Max number of stored messages ("+std::to_string(MaxStoredMessages)+") reached, proceed to notify"
-              << std::endl;
-          return Notify();
-        }
-        total_num_messages++;
-        return true;
       }
 
       bool Subscribe(const std::string& key) {
@@ -464,24 +451,18 @@ namespace configuration {
                  (subscriber_connection_status != redox::Redox::CONNECTED) ) ;
       }
       
-      int NumMessages() const { return updates.size(); }
-      int NumRecvMessages() const { return total_recv_messages; }
-      bool keep_counting = true;
+      bool keep_counting = true;      
     private:
       std::shared_ptr<redox::Redox> publisher;
       std::shared_ptr<redox::Subscriber> subscriber;
       
       std::ostream& log;
-      unsigned long int total_num_messages = 0;
-      unsigned long int total_recv_messages = 0;
-
-      std::chrono::system_clock::time_point last_notify_time;
-      std::thread t;
 
       std::string redis_server;
       int redis_port;
-
-      void TimedNotification() {
+      std::thread t;
+      
+      void AutoNotification() {
         while(this->keep_counting) {
           std::this_thread::sleep_for(std::chrono::seconds(NotificationTimeout));
           log << NotificationTimeout << "s elapsed, auto-notification will occur\n";
@@ -489,23 +470,12 @@ namespace configuration {
         }
         log << "TimedNotification terminated\n";
       }
-      //([](const std::string& t,const std::string& c){ std::cerr << "== "<< t << " : " << c <<" ==" << std::endl; total_recv_messages++ })
+
       
       void count_got_message(const std::string & t,const std::string & c)  {
         std::cerr << "== "<< t << " : " << c <<" ==" << std::endl;
         this->total_recv_messages++;
       } 
-      
-
-      // struct count_got_message {
-      //   count_got_message(int& other_n_recv_msg) : num_msg(other_n_recv_msg) { };
-      //   void got_message(const std::string & t,const std::string & c)  {
-      //     std::cerr << "== "<< t << " : " << c <<" ==" << std::endl;
-      //     num_msg++;
-      //   }
-      //   int& num_msg;
-      // };
-
       
     };
     

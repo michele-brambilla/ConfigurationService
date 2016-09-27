@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 
+#include <future>
+
 // #include "redox.hpp"
 
 // #include <rapidjson/document.h>
@@ -205,24 +207,63 @@ void goodbye(const std::string& s,const std::string& r)
 {
   std::cout << "Goodbye " << s << " " << r << '\n';
 }
+
+bool is_connected (int x) {
+  return (x == configuration::CONNECTED);
+}
+
+
+void connect (std::shared_ptr<RedisCommunicator>& cm) {
+  cm = std::make_shared<RedisCommunicator>("192.168.10.1",6379);
+  //  return  ( cm->publisher_connection_status == configuration::CONNECTED);
+}
+
 int main() {
 
-  int status = -1;
-  std::shared_ptr<redox::Redox> conn = std::make_shared<redox::Redox>();
+  // int status = -1;
+  // std::shared_ptr<redox::Redox> conn = std::make_shared<redox::Redox>();
 
-  if( !conn->connect("localhost", 6379,std::bind(configuration::utils::redis_connection_callback,
-                                                 std::placeholders::_1,
-                                                 std::ref(status)) ) ) {
-    conn = std::make_shared<redox::Redox>();
-    conn->connect("192.168.10.11", 6379,std::bind(configuration::utils::redis_connection_callback,
-                                                 std::placeholders::_1,
-                                                  std::ref(status)) );
-  }
+  // int connection_status;
+  // if( !conn->connect("localhost", 6379,std::bind(configuration::utils::redis_connection_callback,
+  //                                                std::placeholders::_1,
+  //                                                std::ref(connection_status)) ) ) {
+  //   conn = std::make_shared<redox::Redox>();
+  //   conn->connect("192.168.10.11", 6379,std::bind(configuration::utils::redis_connection_callback,
+  //                                                std::placeholders::_1,
+  //                                                 std::ref(connection_status)) );
+  // }
+
+  // conn->disconnect();
+
+  // std::shared_ptr<RedisCommunicator> cm; //= make_unique<RedisCommunicator>("192.168.10.1",6379);
+  // auto fut = std::async(std::launch::async,connect,std::ref(cm));
+
+  // if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+  //   throw std::runtime_error("connection timeout\n");
+  // }
+
+  ZmqCommunicator zc("192.168.10.1",6379);
+  
+  
+  // while (fut.wait_for(std::chrono::seconds(1)) != std::future_status::ready) {
+  //   std::cout << "... still not ready\n";
+  //   if (fut.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+
+  //   }
+  // }
+  
+  // std::chrono::milliseconds span (100);
+  // while (fut.wait_for(span)==std::future_status::timeout)
+  //   std::cout << '.';
+  // //  bool x = fut.get();
+   
+  // if( cm->publisher_connection_status != configuration::CONNECTED )
+  //   throw std::runtime_error("DataManager not connected\n");
 
 
 
 
-  conn->disconnect();
+  
   
   // std::shared_ptr<redox::Redox> rdx = std::make_shared<redox::Redox>() ;
   // if( !rdx->connect("localhost") )

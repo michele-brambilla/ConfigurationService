@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <functional>
 #include <thread>
+#include <map>
+#include <future>
 
 namespace configuration {
   namespace communicator {
@@ -54,38 +56,55 @@ namespace configuration {
 
     
     struct Communicator {
-      
+      static int MaxStoredMessages;
+      static int NotificationTimeout;
+      Communicator(std::ostream& logger=std::cerr) : log(logger) { }
+
       //////////////
       /// Informs that key has changed its value according to status: 
       /// - u: value or content has been updated
       /// - a: key is a brand new key
       /// - d: the key has been deleted
-      virtual bool Publish(const std::string&,const std::string&) { return false; }
-
+      bool Publish(const std::string& key,const std::string& status) {
+        updates.insert(std::pair<std::string,std::string>(key,status) );
+        if(updates.size() > MaxStoredMessages) {
+          log << "Max number of stored messages ("+std::to_string(MaxStoredMessages)+") reached, proceed to notify"
+              << std::endl;
+          return Notify();
+        }
+        total_num_messages++;
+        return true;
+      }
+      
       /////////////
       /// Sends all the messages stored since last notify
       virtual bool Notify() { return false; }
 
-      // virtual bool Subscribe(const std::string&) { return false; }
-
-      // // callback on message received
-      // virtual bool Subscribe(const std::string&,
-      //                        std::function< void(const std::string &,const std::string &) >
-      //                        ) { return false; }
-
-      // callback on message receive, unsubscription, subscription error
       virtual bool Subscribe(const std::string&,
-                             std::function< void(const std::string &,const std::string &) > = default_got_message, // got message
+                             std::function< void(const std::string &,const std::string &) > = default_got_message,
                              std::function< void(const std::string &,const int &) > = default_got_error,         // got error
                              std::function< void(const std::string & ) > = default_unsubscribed                    // unsubscribe
                              ) { return false; }
 
       // virtual bool Unsubscribe(const std::string&) { return false; }
       virtual bool Unsubscribe(const std::string&,std::function< void(const std::string &,const int &) >) { return false; }
+
+      const int NumMessages() const { return updates.size(); }
+      const int NumRecvMessages() const { return total_recv_messages; }
       
     protected:
       std::multimap<std::string,std::string> updates;
+      unsigned long int total_num_messages = 0;
+      unsigned long int total_recv_messages = 0;
 
+      std::ostream& log;
+
+
+      void count_got_message(const std::string & t,const std::string & c, unsigned long int& n)  {
+        std::cerr << "== "<< t << " : " << c <<" ==" << std::endl;
+        this->total_recv_messages++;
+      }
+      
     };
 
 
@@ -96,7 +115,7 @@ namespace configuration {
       MockCommunicator(const std::string&, const int&) { };
       
     };
-    
+
   }
 }
   

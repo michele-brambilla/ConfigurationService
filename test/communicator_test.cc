@@ -2,8 +2,8 @@
 
 #include <configuration.hpp>
 
-std::string redis_server="192.168.10.11";
-static const int redis_port=6379;
+std::string redis_server="129.129.195.107";
+static const int redis_port=16379;
 static const int num_test_msg=10;
 
 int count_test_msg;

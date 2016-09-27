@@ -57,7 +57,6 @@ namespace configuration {
       }
 
       void Dump(std::ostream& os=std::cout) {
-        std::cout << "DUMP " << std::endl;
         utils::typelist::KEYS_t result;
         std::string s = {"KEYS *"};
         if( utils::ExecRedisCmd<utils::typelist::KEYS_t>(*rdx,s,result) )
@@ -101,6 +100,24 @@ namespace configuration {
         return result.size()>0;
       }
 
+      bool HExists(const std::string& hash,const std::string& key) {
+    	std::string cmd = {"HEXISTS "+hash+" "+key};
+    	int value = 0;
+    	utils::ExecRedisCmd<int>(*rdx,cmd,value);
+    	return value;
+      }
+      bool SIsMember(const std::string& hash,const std::string& key) {
+    	std::string cmd = {"SISMEMBER "+hash+" "+key};
+    	int value = 0;
+    	utils::ExecRedisCmd<int>(*rdx,cmd,value);
+    	return value;
+      }
+
+      bool IsHash(const std::string& key) { 
+	std::string key_type;
+	utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
+	return key_type == "hash";
+      }
 
       bool AddToHash(const std::string& key,
                      const std::vector<std::string>& value) override {
@@ -115,8 +132,9 @@ namespace configuration {
         return is_ok;
       }
       bool AddToHash(const std::string& key, const std::string& value) override {
+        std::size_t found = key.find_last_of(":");
         updates.Publish(key,"a");
-        return rdx->set(key,value);
+        return utils::ExecRedisCmd<int>(*rdx,std::string("HSET ")+key.substr(0,found)+" "+key.substr(found+1)+" "+value);
       }
       
       bool RemoveFromParent(const std::string& parent,const std::string& name) override {
@@ -131,8 +149,7 @@ namespace configuration {
         utils::ExecRedisCmd<int>(*rdx,std::string("SCARD ")+parent,&nelem);
         if (nelem == 0) 
           is_ok &=  (RemoveKey(parent) > 0) ;
-        
-        return is_ok;
+	return is_ok;
       }
       int RemoveChildren(const std::string& key) override {
         utils::typelist::KEYS_t children_list;
@@ -145,39 +162,44 @@ namespace configuration {
         return children_list.size();
       }
 
+
       bool RemoveKey(const std::string& key) override {
-        //updates.push_back(std::pair<std::string,std::string>(key,"d"));   
         updates.Publish(key,"d");
         std::string key_type;
-        utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
-        bool is_ok = true;
-        
+	bool is_ok = utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
+        bool ok;
+
         if(key_type == "set") {
           // remove children
           int nelem;
           utils::ExecRedisCmd<int>(*rdx,std::string("SCARD ")+key,&nelem);
           is_ok &= ( (RemoveChildren(key)>0 && nelem >0) ? true : false);
         }
-        
+	
         // remove from parent
         std::size_t found = key.find_last_of(":");
-        // std::string parent_key=key.substr(0,found);
-        // std::string parent_value=key.substr(found+1);
         is_ok &= RemoveFromParent(key.substr(0,found),key.substr(found+1));
-        bool ok;
-        is_ok &= (ok = utils::ExecRedisCmd<int>(*rdx,std::string("DEL ")+key) );
-        if(ok) {
-          updates.Publish(key,"d");
-        }
-        return is_ok;
-        
-      }
+        ok = utils::ExecRedisCmd<int>(*rdx,std::string("DEL ")+key);
+        if(ok)  updates.Publish(key,"d");
 
+        return (is_ok && ok);
+      }
+      
+      bool RemoveHash(const std::string& hash,const std::string& key) override {
+        if(utils::ExecRedisCmd<int>(*rdx,std::string("HDEL ")+hash+" "+key)) {
+	  updates.Publish(key,"d");
+	  return true;
+	}
+        return false;
+      }
       
       bool UpdateHashValue(const std::string& key,const std::string& value) override {
-        std::string cmd = std::string("SET ")+key+" "+value;
+        std::size_t found = key.find_last_of(":");
+        if (found == std::string::npos ) 
+	  return false;
+        std::string cmd = std::string("HSET ")+key.substr(0,found)+" "+key.substr(found+1)+" "+value;
         updates.Publish(key,"u");
-        return utils::ExecRedisCmd<std::string>(*rdx,cmd);
+        return utils::ExecRedisCmd<int>(*rdx,cmd);
       }
 
 
@@ -205,66 +227,121 @@ namespace configuration {
       
       utils::typelist::LIST_t ReturnValue(const std::string& key) override {
         utils::typelist::LIST_t result;
-        if( !KeyExists(key) ) {
-          log << "Key " << key << " doesn't exists\n";
-          return result;
-        }
-        
         std::string key_type;
-        utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
-
-        if(key_type == "set") {
-          utils::ExecRedisCmd<utils::typelist::LIST_t>(*rdx,std::string("SMEMBERS ")+key,result);
-          // removes eventual empty items
-          result.erase( std::remove( result.begin(), result.end(), " " ), result.end() );
+	std::string tmp;
+        
+	if( !KeyExists(key) ) { //must be a key /in hash
+	  std::size_t found = key.find_last_of(":");
+	  utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key.substr(0,found),key_type);
+	  if(key_type != "hash" || (utils::ExecRedisCmd<utils::typelist::VALUE_t>(*rdx,std::string("HGET ")+key.substr(0,found)+" "+key.substr(found+1),tmp) == 0 ) )
+	    return result; //error
+	  result.push_back(tmp);
         }
-        else
-          if(key_type == "string") {
-            std::string tmp;
-            utils::ExecRedisCmd<utils::typelist::VALUE_t>(*rdx,std::string("GET ")+key,tmp);
-            result.push_back(tmp);
-          }
+	else {
+	  utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);	  
+	  if(key_type == "set") {
+	    utils::ExecRedisCmd<utils::typelist::LIST_t>(*rdx,std::string("SMEMBERS ")+key,result);
+	    // removes eventual empty items
+	    //	    result.erase( std::remove( result.begin(), result.end(), " " ), result.end() );
+	  }
           else {
-            //            throw std::runtime_error("Type "+key_type+" not supported");
-            log << "Type "+key_type+" not supported";
-          }
-            
-        return result;
+	    if( key_type == "hash") {
+	      utils::ExecRedisCmd<utils::typelist::LIST_t>(*rdx,std::string("HKEYS ")+key,result);
+	    }
+	    else {
+	      if(key_type == "string") {
+		utils::ExecRedisCmd<utils::typelist::VALUE_t>(*rdx,std::string("GET ")+key,tmp);
+		result.push_back(tmp);
+	      }
+	      else {
+		//            throw std::runtime_error("Type "+key_type+" not supported");
+		log << "Type "+key_type+" not supported";
+	      }
+	    }
+	  }
+	}
+	return result;
       }
+    
 
-
-      bool scan(rapidjson::Value::MemberIterator first,
-                rapidjson::Value::MemberIterator last,
-                std::string prefix="") override {
+      // bool scan(rapidjson::Value::MemberIterator first,
+      //           rapidjson::Value::MemberIterator last,
+      //           std::string prefix="") override {
   
-        bool is_ok = true;
-        std::string separator="";
-        if(prefix!="")
-          separator=":";
+      //   bool is_ok = true;
+      //   std::string separator="";
+      //   if(prefix!="")
+      //     separator=":";
   
-        for( auto& it = first; it != last; ++it) {
-          is_ok &= (!KeyExists(prefix+separator+std::string(it->name.GetString())) );
-          if(it->value.IsObject()) {
-            std::string s = "SADD "+ prefix+separator+std::string(it->name.GetString())+std::string(" ");
-            for( auto v = it->value.MemberBegin();
-                 v != it->value.MemberEnd(); ++v)
-              is_ok &= utils::ExecRedisCmd<utils::typelist::SADD_t>(*rdx,s+v->name.GetString());
+      //   for( auto& it = first; it != last; ++it) {
+      //     is_ok &= (!KeyExists(prefix+separator+std::string(it->name.GetString())) );
+      //     if(it->value.IsObject()) {
+      //       std::string s = "SADD "+ prefix+separator+std::string(it->name.GetString())+std::string(" ");
+      //       for( auto v = it->value.MemberBegin();
+      //            v != it->value.MemberEnd(); ++v)
+      //         is_ok &= utils::ExecRedisCmd<utils::typelist::SADD_t>(*rdx,s+v->name.GetString());
             
-            is_ok &= scan(it->value.MemberBegin(),
-                          it->value.MemberEnd(),
-                          prefix+separator+std::string(it->name.GetString()));
-          }
-          else {
-            std::string s = "SET "+prefix+separator+std::string(it->name.GetString())+std::string(" ");
-            s+= it->value.GetString();
-            if(is_ok)
-              utils::ExecRedisCmd<utils::typelist::SET_t>(*rdx,s);
-            else
-              log << "Key " << std::string(it->value.GetString()) << " exists, not added\n";
+      //       is_ok &= scan(it->value.MemberBegin(),
+      //                     it->value.MemberEnd(),
+      //                     prefix+separator+std::string(it->name.GetString()));
+      //     }
+      //     else {
+      //       std::string s = "SET "+prefix+separator+std::string(it->name.GetString())+std::string(" ");
+      //       s+= it->value.GetString();
+      //       if(is_ok)
+      //         utils::ExecRedisCmd<utils::typelist::SET_t>(*rdx,s);
+      //       else
+      //         log << "Key " << std::string(it->value.GetString()) << " exists, not added\n";
 
-          }
-        }
-        return is_ok;
+      //     }
+      //   }
+      //   return is_ok;
+      // }
+
+
+
+      
+      bool redis_json_scan(GenericMemberIterator& member,std::string prefix) {
+
+    	bool is_ok = true;
+    	if( prefix.size() == 0)
+    	  prefix=std::string(member.name.GetString());
+    	else
+    	  prefix+=":"+std::string(member.name.GetString());
+	
+    	for (auto& next : member.value.GetObject()) {
+    	  if( next.value.IsObject() ) {
+    	    if( !SIsMember(prefix,next.name.GetString())) {
+    	      std::string cmd = {"SADD "+prefix+" "+next.name.GetString()};
+    	      is_ok &= utils::ExecRedisCmd<int>(*rdx,cmd);
+    	    }
+    	    else {
+	      is_ok = false;
+    	      log << "\tprefix"   << " " 
+		  << next.name.GetString() << " exists"
+		  << std::endl;
+    	    }
+    	    redis_json_scan(next,prefix);
+    	  }
+    	  else {
+    	    if( !HExists(prefix,next.name.GetString()) ) {
+	      is_ok = false;
+    	      std::string cmd = {"HSET "+prefix+
+    				 " "+next.name.GetString()+
+    				 " "+next.value.GetString()};
+    	      is_ok &= utils::ExecRedisCmd<int>(*rdx,cmd);
+    	    }
+    	    else {
+	      is_ok = false;
+    	      log << "\tprefix"   << " " 
+		  << next.name.GetString() << " " 
+		  << next.value.GetString()  << " exists"
+		  << std::endl;
+	    }
+
+    	  }
+    	}
+    	return is_ok;
       }
 
     };

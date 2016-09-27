@@ -18,7 +18,7 @@ static const char* kTypeNames[] =
 
 
 template<typename T>
-void redis_json_scan(T& member,std::string);
+bool redis_json_scan(T& member,std::string);
 
 // using namespace std;
 // using redox::Redox;
@@ -45,6 +45,26 @@ bool ExecRedisCmd(const std::string& s) {
   }
   return true;
 }
+template<typename Output>
+bool ExecRedisCmd(const std::string& s, Output& out) {
+  auto& c = rdx.commandSync<Output>(redox::Redox::strToVec(s));
+  if( !c.ok() ) {
+    std::cerr << c.lastError() << std::endl;
+    return false;
+  }
+  out = c.reply();
+  return true;
+}
+
+// template<typename Output>
+// bool ExecRedisCmd(redox::Redox& r,const std::string& s) {
+//   auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
+//   if( !c.ok() ) {
+//     std::cerr << c.lastError() << std::endl;
+//     return false;
+//   }
+//   return true;
+// }
 // template<typename Output>
 // bool ExecRedisCmd(redox::Redox& r,const std::string& s, Output& out) {
 //   auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
@@ -221,7 +241,7 @@ bool is_connected (int x) {
 
 
 void connect (std::shared_ptr<RedisCommunicator>& cm) {
-  cm = std::make_shared<RedisCommunicator>("192.168.10.1",6379);
+  cm = std::make_shared<RedisCommunicator>("129.129.135.107",16379);
   //  return  ( cm->publisher_connection_status == configuration::CONNECTED);
 }
 
@@ -281,7 +301,7 @@ int main() {
   // rdx.disconnect();
   // std::this_thread::sleep_for(std::chrono::seconds(1));  
   
-  if( !rdx.connect("localhost",16379) )
+  if( !rdx.connect("129.129.195.107",16379) )
     std::cout << "connecting to " << rdx.connect("192.168.10.11") << std::endl;
 
   
@@ -455,25 +475,62 @@ int main() {
 }
 
 
+
+bool HExists(const std::string& hash,const std::string& key) {
+  std::string cmd = {"HEXISTS "+hash+" "+key};
+  int value = 0;
+  ExecRedisCmd(cmd,value);
+  return value;
+}
+bool SIsMember(const std::string& hash,const std::string& key) {
+  std::string cmd = {"SISMEMBER "+hash+" "+key};
+  int value = 0;
+  ExecRedisCmd(cmd,value);
+  return value;
+}
+
 template<typename T>
-void redis_json_scan(T& member,std::string prefix) {
+bool redis_json_scan(T& member,std::string prefix) {
+
+  bool is_ok = true;
   if( prefix.size() == 0)
     prefix=std::string(member.name.GetString());
   else
     prefix+=":"+std::string(member.name.GetString());
   
-  std::cout << prefix << std::endl;
   for (auto& next : member.value.GetObject()) {
     if( next.value.IsObject() ) {
-      std::string cmd = {"SADD "+prefix+" "+next.name.GetString()};
-      ExecRedisCmd<int>(cmd);
-      std::cout << cmd << std::endl;
+      if( !SIsMember(prefix,next.name.GetString())) {
+	std::string cmd = {"SADD "+prefix+" "+next.name.GetString()};
+	is_ok &= ExecRedisCmd<int>(cmd);
+	std::cout << cmd << std::endl;
+      }
+      else {
+      	std::cout << "\tprefix"   << " " 
+      		  << next.name.GetString() << " exists"
+      		  << std::endl;
+      }
       redis_json_scan(next,prefix);
     }
     else {
-      std::string cmd = {"HSET "+prefix+" "+next.name.GetString()+" "+next.value.GetString()};
-      ExecRedisCmd<int>(cmd);
-      std::cout << "\tHSET " << prefix << " " << next.name.GetString() << " " << next.value.GetString() << std::endl;
+      if( !HExists(prefix,next.name.GetString()) ) {
+	  std::string cmd = {"HSET "+prefix+
+			     " "+next.name.GetString()+
+			     " "+next.value.GetString()};
+	  is_ok &= ExecRedisCmd<int>(cmd);
+	  std::cout << cmd << std::endl;
+      }
+      else
+	std::cout << "\tprefix"   << " " 
+		  << next.name.GetString() << " " 
+		  << next.value.GetString()  << " exists"
+		  << std::endl;
+	
     }
   }
+  return is_ok;
 }
+
+
+
+

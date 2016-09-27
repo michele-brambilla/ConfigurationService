@@ -6,19 +6,26 @@
 
 // #include "redox.hpp"
 
-// #include <rapidjson/document.h>
-// #include <rapidjson/writer.h>
-// #include <rapidjson/stringbuffer.h>
-// #include <rapidjson/error/en.h>
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/error/en.h>
 
 #include <configuration.hpp>
+
+static const char* kTypeNames[] = 
+  { "Null", "False", "True", "Object", "Array", "String", "Number" };
+
+
+template<typename T>
+void redis_json_scan(T& member,std::string);
 
 // using namespace std;
 // using redox::Redox;
 // using redox::Command;
 
 
-// redox::Redox rdx;
+redox::Redox rdx;
 
 // struct typelist
 // {
@@ -29,15 +36,15 @@
 // };
 
 
-// template<typename Output>
-// bool ExecRedisCmd(redox::Redox& r,const std::string& s) {
-//   auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
-//   if( !c.ok() ) {
-//     std::cerr << c.lastError() << std::endl;
-//     return false;
-//   }
-//   return true;
-// }
+template<typename Output>
+bool ExecRedisCmd(const std::string& s) {
+  auto& c = rdx.commandSync<Output>(redox::Redox::strToVec(s));
+  if( !c.ok() ) {
+    std::cerr << c.lastError() << std::endl;
+    return false;
+  }
+  return true;
+}
 // template<typename Output>
 // bool ExecRedisCmd(redox::Redox& r,const std::string& s, Output& out) {
 //   auto& c = r.commandSync<Output>(redox::Redox::strToVec(s));
@@ -120,7 +127,7 @@
 
 
 
-// const char* instrument_file = "../sample/example_instrument.js";
+const char* instrument_file = "sample/example_instrument.js";
 
 // std::string read_config_file(const char* s) {
 //   std::ifstream in;
@@ -242,7 +249,7 @@ int main() {
   //   throw std::runtime_error("connection timeout\n");
   // }
 
-  ZmqCommunicator zc("192.168.10.1",6379);
+  //  ZmqCommunicator zc("192.168.10.1",6379);
   
   
   // while (fut.wait_for(std::chrono::seconds(1)) != std::future_status::ready) {
@@ -274,8 +281,8 @@ int main() {
   // rdx.disconnect();
   // std::this_thread::sleep_for(std::chrono::seconds(1));  
   
-  // if( !rdx.connect("localhost") )
-  //   std::cout << "connecting to " << rdx.connect("192.168.10.11") << std::endl;
+  if( !rdx.connect("localhost",16379) )
+    std::cout << "connecting to " << rdx.connect("192.168.10.11") << std::endl;
 
   
 
@@ -401,19 +408,34 @@ int main() {
 
   // std::cout << std::endl;
 
-  // rapidjson::Document t;
-  // rapidjson::ParseResult ok = t.Parse(read_config_file(instrument_file).c_str());
-  // if (!ok) {
-  //   std::cerr << "JSON parse error: " << rapidjson::GetParseError_En(ok.Code())
-  //             << "( " << ok.Offset()
-  //             << ")\n";
-  //   throw std::runtime_error("Error: invalid configuration") ;
-  // }
+  rapidjson::Document t;
+  rapidjson::ParseResult ok = t.Parse(read_config_file(instrument_file).c_str());
+  if (!ok) {
+    std::cerr << "JSON parse error: " << rapidjson::GetParseError_En(ok.Code())
+              << "( " << ok.Offset()
+              << ")\n";
+    throw std::runtime_error("Error: invalid configuration") ;
+  }
+  
 
-  // if(t.IsObject())
-  //   scan(t.MemberBegin(),t.MemberEnd());
-  // else
-  //   throw std::runtime_error("Can't parse ../sample/example_instrument.js");
+
+        
+  if(t.IsObject()) {
+    for (auto& itr : t.GetObject()) {
+    //   if( itr.value.IsObject() )
+    //     for (auto& m : itr.value.GetObject() )
+    //       if( m.value.IsObject() )
+    //         for (auto& n : m.value.GetObject() )
+        
+    //       printf("Type of member %s is %s\n",
+    //              n.name.GetString(), kTypeNames[n.value.GetType()]);
+      redis_json_scan(itr,std::string());
+    }
+  }
+  else
+    throw std::runtime_error("Can't parse ../sample/example_instrument.js");
+  
+
 
   // if( KeyExists("instrument1:sources:motor4")) {
   //   auto r =  ReturnValue("instrument1:sources:motor4");
@@ -430,4 +452,28 @@ int main() {
 
   
   return 0;
+}
+
+
+template<typename T>
+void redis_json_scan(T& member,std::string prefix) {
+  if( prefix.size() == 0)
+    prefix=std::string(member.name.GetString());
+  else
+    prefix+=":"+std::string(member.name.GetString());
+  
+  std::cout << prefix << std::endl;
+  for (auto& next : member.value.GetObject()) {
+    if( next.value.IsObject() ) {
+      std::string cmd = {"SADD "+prefix+" "+next.name.GetString()};
+      ExecRedisCmd<int>(cmd);
+      std::cout << cmd << std::endl;
+      redis_json_scan(next,prefix);
+    }
+    else {
+      std::string cmd = {"HSET "+prefix+" "+next.name.GetString()+" "+next.value.GetString()};
+      ExecRedisCmd<int>(cmd);
+      std::cout << "\tHSET " << prefix << " " << next.name.GetString() << " " << next.value.GetString() << std::endl;
+    }
+  }
 }

@@ -25,8 +25,8 @@ std::string read_config_file(const char* s) {
   return config;
 }
 
-std::string redis_server="129.129.195.107";
-static const int redis_port=16379;
+std::string redis_server="192.168.10.11";
+static const int redis_port=6379;
 
 
 typedef configuration::communicator::MockCommunicator CM;

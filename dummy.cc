@@ -428,32 +428,32 @@ int main() {
 
   // std::cout << std::endl;
 
-  rapidjson::Document t;
-  rapidjson::ParseResult ok = t.Parse(read_config_file(instrument_file).c_str());
-  if (!ok) {
-    std::cerr << "JSON parse error: " << rapidjson::GetParseError_En(ok.Code())
-              << "( " << ok.Offset()
-              << ")\n";
-    throw std::runtime_error("Error: invalid configuration") ;
-  }
+  // rapidjson::Document t;
+  // rapidjson::ParseResult ok = t.Parse(read_config_file(instrument_file).c_str());
+  // if (!ok) {
+  //   std::cerr << "JSON parse error: " << rapidjson::GetParseError_En(ok.Code())
+  //             << "( " << ok.Offset()
+  //             << ")\n";
+  //   throw std::runtime_error("Error: invalid configuration") ;
+  // }
   
 
 
         
-  if(t.IsObject()) {
-    for (auto& itr : t.GetObject()) {
-    //   if( itr.value.IsObject() )
-    //     for (auto& m : itr.value.GetObject() )
-    //       if( m.value.IsObject() )
-    //         for (auto& n : m.value.GetObject() )
+  // if(t.IsObject()) {
+  //   for (auto& itr : t.GetObject()) {
+  //   //   if( itr.value.IsObject() )
+  //   //     for (auto& m : itr.value.GetObject() )
+  //   //       if( m.value.IsObject() )
+  //   //         for (auto& n : m.value.GetObject() )
         
-    //       printf("Type of member %s is %s\n",
-    //              n.name.GetString(), kTypeNames[n.value.GetType()]);
-      redis_json_scan(itr,std::string());
-    }
-  }
-  else
-    throw std::runtime_error("Can't parse ../sample/example_instrument.js");
+  //   //       printf("Type of member %s is %s\n",
+  //   //              n.name.GetString(), kTypeNames[n.value.GetType()]);
+  //     redis_json_scan(itr,std::string());
+  //   }
+  // }
+  // else
+  //   throw std::runtime_error("Can't parse ../sample/example_instrument.js");
   
 
 

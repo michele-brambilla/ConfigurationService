@@ -100,7 +100,7 @@ namespace configuration {
         return result.size()>0;
       }
 
-      bool HExists(const std::string& hash,const std::string& key) {
+      bool HExists(const std::string& hash,const std::string& key) override {
     	std::string cmd = {"HEXISTS "+hash+" "+key};
     	int value = 0;
     	utils::ExecRedisCmd<int>(*rdx,cmd,value);
@@ -113,7 +113,7 @@ namespace configuration {
     	return value;
       }
 
-      bool IsHash(const std::string& key) { 
+      bool IsHash(const std::string& key) override { 
 	std::string key_type;
 	utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
 	return key_type == "hash";
@@ -241,8 +241,6 @@ namespace configuration {
 	  utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);	  
 	  if(key_type == "set") {
 	    utils::ExecRedisCmd<utils::typelist::LIST_t>(*rdx,std::string("SMEMBERS ")+key,result);
-	    // removes eventual empty items
-	    //	    result.erase( std::remove( result.begin(), result.end(), " " ), result.end() );
 	  }
           else {
 	    if( key_type == "hash") {
@@ -254,7 +252,6 @@ namespace configuration {
 		result.push_back(tmp);
 	      }
 	      else {
-		//            throw std::runtime_error("Type "+key_type+" not supported");
 		log << "Type "+key_type+" not supported";
 	      }
 	    }
@@ -263,45 +260,8 @@ namespace configuration {
 	return result;
       }
     
-
-      // bool scan(rapidjson::Value::MemberIterator first,
-      //           rapidjson::Value::MemberIterator last,
-      //           std::string prefix="") override {
-  
-      //   bool is_ok = true;
-      //   std::string separator="";
-      //   if(prefix!="")
-      //     separator=":";
-  
-      //   for( auto& it = first; it != last; ++it) {
-      //     is_ok &= (!KeyExists(prefix+separator+std::string(it->name.GetString())) );
-      //     if(it->value.IsObject()) {
-      //       std::string s = "SADD "+ prefix+separator+std::string(it->name.GetString())+std::string(" ");
-      //       for( auto v = it->value.MemberBegin();
-      //            v != it->value.MemberEnd(); ++v)
-      //         is_ok &= utils::ExecRedisCmd<utils::typelist::SADD_t>(*rdx,s+v->name.GetString());
-            
-      //       is_ok &= scan(it->value.MemberBegin(),
-      //                     it->value.MemberEnd(),
-      //                     prefix+separator+std::string(it->name.GetString()));
-      //     }
-      //     else {
-      //       std::string s = "SET "+prefix+separator+std::string(it->name.GetString())+std::string(" ");
-      //       s+= it->value.GetString();
-      //       if(is_ok)
-      //         utils::ExecRedisCmd<utils::typelist::SET_t>(*rdx,s);
-      //       else
-      //         log << "Key " << std::string(it->value.GetString()) << " exists, not added\n";
-
-      //     }
-      //   }
-      //   return is_ok;
-      // }
-
-
-
       
-      bool redis_json_scan(GenericMemberIterator& member,std::string prefix) {
+      bool redis_json_scan(GenericMemberIterator& member,std::string prefix) override {
 
     	bool is_ok = true;
     	if( prefix.size() == 0)
@@ -388,10 +348,10 @@ namespace configuration {
       }
 
       ~RedisCommunicator() {
-        subscriber->disconnect();
-        publisher->disconnect();
         keep_counting = false;
         t.join();
+        subscriber->disconnect();
+        publisher->disconnect();
       }
 
 

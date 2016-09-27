@@ -2,8 +2,8 @@
 
 #include <configuration.hpp>
 
-std::string redis_server="129.129.195.107";
-static const int redis_port=16379;
+std::string redis_server="192.168.10.11";
+static const int redis_port=6379;
 static const int num_test_msg=10;
 
 int count_test_msg;
@@ -37,6 +37,7 @@ TEST (CommunicatorManager, AddMessage) {
   EXPECT_EQ(cm.NumMessages(),0);
   EXPECT_TRUE( cm.Publish("key","a") );
   EXPECT_EQ(cm.NumMessages(),1);
+  //  cm.Notify(); // prevents segmentation fault
 }
 
 TEST (CommunicatorManager, AddMessages) {
@@ -46,6 +47,7 @@ TEST (CommunicatorManager, AddMessages) {
   for(int i = 0; i < num_test_msg;++i)
     EXPECT_TRUE( cm.Publish(std::to_string(i),status[i%3]) );
   EXPECT_EQ(cm.NumMessages(),num_test_msg);
+  //  cm.Notify(); // prevents segmentation fault
 }
 
 TEST (CommunicatorManager, Notify) {
@@ -66,6 +68,7 @@ TEST (CommunicatorManager, AutoNotify) {
     EXPECT_TRUE( cm.Publish(std::string("message:")+std::to_string(i),status[i%3]) );
   }
   EXPECT_NE(cm.NumMessages(),10*configuration::communicator::Communicator::MaxStoredMessages);
+  //  EXPECT_TRUE( cm.Notify() );
 }
 
 

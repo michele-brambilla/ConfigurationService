@@ -37,12 +37,14 @@ protected:
 
 public:
   static std::string redis_server;
+  static std::string path;
   static int redis_port;
 
   const int num_test_msg=10;
 };
 
 std::string CommunicatorManager::redis_server = "localhost";
+std::string CommunicatorManager::path = "../";
 int CommunicatorManager::redis_port   = 6379;
 
 
@@ -284,6 +286,25 @@ TEST_F (CommunicatorManager, UnsubscribeMember) {
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
+  if(std::string(argv[0]).substr(0,5) == "build")
+    CommunicatorManager::path = "./";
+  else {
+    int found = std::string(argv[0]).find("/build/test/communicator_test");
+    if (found != std::string::npos)
+      CommunicatorManager::path = std::string(argv[0]).substr(0,found+1);      
+  }
+ 
+  //////////////////
+  // Reads info from configuration file
+  std::ifstream in(CommunicatorManager::path+"configuration_service.config");
+  std::string next, sep,value;
+  do {
+    in >> next >> sep >> value;
+    if( next == "data_addr" ) CommunicatorManager::redis_server = value;
+    if( next == "data_port" ) std::istringstream(value) >> CommunicatorManager::redis_port;
+  } while(!in.eof() );
+
+
   for(int i=1;i<argc;++i) {
     size_t found = std::string(argv[i]).find("=");
     if( std::string(argv[i]).substr(0,found) == "--port")
@@ -299,8 +320,8 @@ int main(int argc, char **argv) {
     
   }
   
-
-
+  std::cout  << "\t--server=" << CommunicatorManager::redis_server << "\t"
+	     << "\t--port="   << CommunicatorManager::redis_port << "\n";
 
   //  // hack for automated testing
   // {

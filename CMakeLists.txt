@@ -18,6 +18,12 @@ include_directories(${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/redox/include
   ${PROJECT_SOURCE_DIR}/cppzmq)
 
+
+#MESSAGE( STATUS "TEST_SOURCE_DIR:            " ${TEST_SOURCE_DIR} )
+#MESSAGE( STATUS "BUILD_SOURCE_DIR:           " ${BUILD_SOURCE_DIR} )
+#MESSAGE( STATUS "PROJECT_SOURCE_DIR:         " ${PROJECT_SOURCE_DIR} )
+#MESSAGE( STATUS "CMAKE_CTEST_COMMAND:        " ${CMAKE_CTEST_COMMAND} )
+
 add_subdirectory("${PROJECT_SOURCE_DIR}/redox")
 
 link_directories("${PROJECT_SOURCE_DIR}/redox/build")

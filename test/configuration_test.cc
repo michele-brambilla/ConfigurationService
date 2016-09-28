@@ -383,8 +383,22 @@ int main(int argc, char **argv) {
 
   if(std::string(argv[0]).substr(0,5) == "build")
     ConfigurationService::path = "./";
-  
-  //std::cout << (ConfigurationService::path+instrument_file) << std::endl;
+  else {
+    int found = std::string(argv[0]).find("/build/test/configuration_test");
+    if (found != std::string::npos)
+      ConfigurationService::path = std::string(argv[0]).substr(0,found+1);      
+  }
+
+  //////////////////
+  // Reads info from configuration file
+  std::ifstream in(ConfigurationService::path+"configuration_service.config");
+  std::string next, sep,value;
+  do {
+    in >> next >> sep >> value;
+    if( next == "data_addr" ) ConfigurationService::redis_server = value;
+    if( next == "data_port" ) std::istringstream(value) >> ConfigurationService::redis_port;
+  } while(!in.eof() );
+
 
   for(int i=1;i<argc;++i) {
     size_t found = std::string(argv[i]).find("=");
@@ -400,6 +414,9 @@ int main(int argc, char **argv) {
     }
 
   }
+
+  std::cout  << "\t--server=" << ConfigurationService::redis_server << "\t"
+	     << "\t--port=" << ConfigurationService::redis_port << "\n";
 
   // // hack for automated testing
   // {

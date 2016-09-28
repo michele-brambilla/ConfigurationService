@@ -6,6 +6,7 @@ env | sort
 # Install packages
 sudo apt-get update
 sudo apt-get install -y libhiredis-dev libev-dev libgtest-dev redis-server
+sudo apt-get install -y czmq-devel
 
 # Make gtest
 git clone https://github.com/google/googletest

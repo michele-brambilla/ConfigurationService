@@ -25,21 +25,28 @@ namespace configuration {
       static int NotificationTimeout;
       int publisher_connection_status;
       int subscriber_connection_status;
+
+      zmq::message_t srequest; 
       
       ZmqCommunicator(const std::string& server,
                       const int& port=5555,
                       std::ostream& logger=std::cerr) 
         : context(std::make_shared<zmq::context_t>(1)),
-          publisher(std::make_shared<zmq::socket_t>(*context, ZMQ_PUSH)),
-          subscriber(std::make_shared<zmq::socket_t>(*context, ZMQ_PULL)),
+          publisher(std::make_shared<zmq::socket_t>(*context, ZMQ_PUB)),
+          subscriber(std::make_shared<zmq::socket_t>(*context, ZMQ_SUB)),
           log(logger),
           last_notify_time(std::chrono::system_clock::now()),
           zmq_server(server),
           zmq_port(port)
       {
         publisher->connect(std::string("tcp://localhost:5555"));//+std::to_string(zmq_port));
-        subscriber->connect(std::string("tcp://127.0.0.1:5555"));//+std::to_string(zmq_port));
+        subscriber->bind(std::string("tcp://*:5554"));//+std::to_string(zmq_port));
         
+
+
+        result_subscriber = std::async(std::launch::async,
+				       &ZmqCommunicator::Listener,this);
+	
         // publisher->connect(redis_server, redis_port,
         //                    std::bind(utils::redis_connection_callback,
         //                              std::placeholders::_1,
@@ -57,6 +64,7 @@ namespace configuration {
       }
 
       ~ZmqCommunicator() {
+	result_subscriber.get();
         // subscriber->disconnect();
         // publisher->disconnect();
         // keep_counting = false;
@@ -64,25 +72,34 @@ namespace configuration {
         //   t.join();
       }
 
+
+      void Listener() {
+	while(true) {
+	  subscriber->recv(&srequest);
+	  std::cout << "Received " << (char*)srequest.data() << std::endl;	
+	  //	  got_message(std::string((char*)srequest.data()),"ok");
+	}
+      }
+
       void PingPong() {
-        
+	std::string filter("H");
+	subscriber->setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
         zmq::message_t prequest (6);
         memcpy ((void *) prequest.data (), "Hello", 5);
         std::cout << "Sending Hello ";
         std::cout.flush();
 
 
-        // std::async(std::launch::async,
-        //                       [&](){publisher->send(prequest);});
+	
         publisher->send(prequest);
         std::cout << "..." << std::endl;
         
         std::cout << "Waiting for receiving" << std::endl;
           
-        zmq::message_t srequest;
-        subscriber->recv(&srequest);
 
-        std::cout << "Received " << (char*)srequest.data() << std::endl;
+        
+
+
 
       }
 
@@ -244,10 +261,10 @@ namespace configuration {
       // unsigned long int total_recv_messages = 0;
 
       std::chrono::system_clock::time_point last_notify_time;
-      std::thread t;
 
       std::string zmq_server;
       int zmq_port;
+      std::future<void> result_subscriber;
 
       // void TimedNotification() {
       //   while(this->keep_counting) {

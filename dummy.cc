@@ -254,23 +254,35 @@ int main() {
   // std::shared_ptr<zmq::context_t> context;
   // std::shared_ptr<zmq::socket_t> publisher;
   // std::shared_ptr<zmq::socket_t> subscriber;
+
   // context = std::make_shared<zmq::context_t>(1);
   // publisher = std::make_shared<zmq::socket_t>(*context, ZMQ_PUSH);
   // subscriber = std::make_shared<zmq::socket_t>(*context, ZMQ_PULL);
   // publisher->connect(std::string("tcp://localhost:5555"));
+
   // try {
   //   subscriber->bind(std::string("tcp://*:5555"));
   // }
   // catch (std::exception& e) {
   //   std::cout << e.what() << std::endl;
   // }
+
   // zmq::message_t prequest (6), srequest;
+  // auto fut_r = std::async(std::launch::async,
+  // 			  [&](){subscriber->recv(&srequest);});
+  // auto fut_s = std::async(std::launch::async,
+  // 			  [&](){publisher->send(prequest);});
+
+
+  // std::cout << "Publish" << std::endl;
   // memcpy ((void *) prequest.data (), "Hello", 5);
+  // //publisher->send(prequest);
+  // //  subscriber->recv(&srequest);
 
-  // publisher->send(prequest);
-  // subscriber->recv(&srequest);
-
+  // fut_r.get();
   // std::cout << "Received " << (char*)srequest.data() << std::endl;
+
+
   
   // int status = -1;
   // std::shared_ptr<redox::Redox> conn = std::make_shared<redox::Redox>();

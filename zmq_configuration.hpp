@@ -45,7 +45,10 @@ namespace configuration {
 
 
         result_subscriber = std::async(std::launch::async,
-				       &ZmqCommunicator::Listener,this);
+				       &ZmqCommunicator::Listener,this,
+                                       default_got_message,
+                                       default_got_error,
+                                       default_unsubscribed );
 	
         // publisher->connect(redis_server, redis_port,
         //                    std::bind(utils::redis_connection_callback,
@@ -73,14 +76,21 @@ namespace configuration {
       }
 
 
-      void Listener() {
+      void Listener( std::function<void(const std::string&,
+                                        const std::string&)> f,
+                     std::function<void(const std::string&,
+                                        const int&)> g = default_got_error,
+                     std::function<void(const std::string&)> h = default_unsubscribed) {
 	while(true) {
 	  subscriber->recv(&srequest);
-	  std::cout << "Received " << (char*)srequest.data() << std::endl;	
-	  //	  got_message(std::string((char*)srequest.data()),"ok");
+	  std::cout << "Received " << std::string((char*)srequest.data()
+                                                  ).substr(0,srequest.size()) << std::endl;	
+	  f("hello","ok");
 	}
       }
 
+
+      
       void PingPong() {
 	std::string filter("H");
 	subscriber->setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());

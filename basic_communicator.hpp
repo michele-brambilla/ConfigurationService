@@ -57,7 +57,6 @@ namespace configuration {
     
     struct Communicator {
       static int MaxStoredMessages;
-      static int NotificationTimeout;
       Communicator(std::ostream& logger=std::cerr) : log(logger) { }
 
       //////////////

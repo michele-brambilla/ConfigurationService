@@ -488,7 +488,9 @@ namespace configuration {
                  (subscriber_connection_status != redox::Redox::CONNECTED) ) ;
       }
       
-      bool keep_counting = true;      
+      bool keep_counting = true;
+      static int NotificationTimeout;
+      
     private:
       std::shared_ptr<redox::Redox> publisher;
       std::shared_ptr<redox::Subscriber> subscriber;

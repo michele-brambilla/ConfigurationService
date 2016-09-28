@@ -33,68 +33,86 @@ void counting_got_message(const std::string &,const std::string &,int& count)  {
 
 using CM = configuration::communicator::RedisCommunicator;
 using DM = configuration::data::RedisDataManager<CM>;
-using ConfigurationService = configuration::ConfigurationManager<DM,CM>;
+using Configuration = configuration::ConfigurationManager<DM,CM>;
 
-using namespace configuration;
 
-std::string path;
 const char* instrument_file = "sample/example_instrument.js";
 const char* new_instrument_file = "sample/example_instrument2.js";
-std::string redis_server = "192.168.10.11";
-const int redis_port = 6379;
 
-ConfigurationService cs(redis_server.c_str(),redis_port,redis_server.c_str(),redis_port);
+class ConfigurationService : public ::testing::Test {
+  
+protected:
+  
+  virtual void SetUp() {
+    cs = std::make_shared<Configuration>(redis_server.c_str(),redis_port,
+					 redis_server.c_str(),redis_port);
+  }
+  
+  std::shared_ptr<Configuration> cs;
 
-TEST (Connection, ConnectionOK) {
-  ASSERT_NO_THROW(ConfigurationService(redis_server.c_str(),redis_port,redis_server.c_str(),redis_port));
+public:
+  static std::string path;
+  static std::string redis_server;
+  static int redis_port;
+
+};
+
+std::string ConfigurationService::path         = "../";
+std::string ConfigurationService::redis_server = "localhost";
+int ConfigurationService::redis_port   = 6379;
+//configuration::communicator::RedisCommunicator::NotificationTimeout = 1;
+
+
+TEST_F (ConfigurationService,ConnectionOK) {
+  ASSERT_NO_THROW(Configuration(redis_server.c_str(),redis_port,redis_server.c_str(),redis_port));
 }
-TEST (Connection, ConnectionFail) {
-  ASSERT_ANY_THROW(ConfigurationService("localhost",redis_port,redis_server.c_str(),redis_port));
-}
+// TEST_F (ConfigurationService,ConnectionFail) {
+//   ASSERT_ANY_THROW(Configuration("localhost",redis_port,redis_server.c_str(),redis_port));
+// }
 
 
-TEST (UploadConfig, ValidConfiguration) {
+TEST_F (ConfigurationService,ValidConfiguration) {
   std::string in = read_config_file((path+instrument_file).c_str()); 
   {
     CM c(redis_server,redis_port);
     DM d(redis_server,redis_port,c);
     d.Clear();
   }
-  EXPECT_TRUE(cs.AddConfig(in));
+  EXPECT_TRUE(cs->AddConfig(in));
 }
 
-TEST (UploadConfig, RecordPresent) {
+TEST_F (ConfigurationService,RecordPresent) {
   std::string in = read_config_file((path+instrument_file).c_str());
-  EXPECT_FALSE(cs.AddConfig(in));
+  EXPECT_FALSE(cs->AddConfig(in));
 }
 
-TEST (UploadConfig, RecordNotPresent) {
+TEST_F (ConfigurationService,RecordNotPresent) {
   std::string in = read_config_file((path+new_instrument_file).c_str());
-  EXPECT_TRUE(cs.AddConfig(in));
+  EXPECT_TRUE(cs->AddConfig(in));
 }
 
 
-TEST (Query, KeyValue) {
+TEST_F (ConfigurationService,QueryKeyValue) {
   // an existing hash key must return a vector containing one element
   std::string key("instrument1:sources:motor2:type");
-  EXPECT_EQ( cs.Query(key).size(), 1 );
-  EXPECT_EQ( cs.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
-  EXPECT_NE( cs.Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
+  EXPECT_EQ( cs->Query(key).size(), 1 );
+  EXPECT_EQ( cs->Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  EXPECT_NE( cs->Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
   
    //  a non-exising hash key must return an empty vector
-  EXPECT_EQ( cs.Query("instrument1:sources:motor4:notype").size(), 0 );
+  EXPECT_EQ( cs->Query("instrument1:sources:motor4:notype").size(), 0 );
 }
 
-TEST (Query, MultipleValues) {
+TEST_F (ConfigurationService,QueryMultipleValues) {
   std::vector<std::string> expect_failure = { "type","address","something else"};
   std::vector<std::string> expect_success = { "type","address"};
   std::vector<std::string> content;
 
   // a non-exising hash key must return an empty vector
-  content = cs.Query("instrument1:sources:nomotor");
+  content = cs->Query("instrument1:sources:nomotor");
   EXPECT_TRUE( content.size() == 0 );
 
-  content = cs.Query("instrument1:sources:motor4");
+  content = cs->Query("instrument1:sources:motor4");
   // an existing set key must return a vector containing at least one element
   EXPECT_TRUE( content.size() != 0  );
   // test set length and content
@@ -112,82 +130,82 @@ TEST (Query, MultipleValues) {
 }
 
 
-TEST (Update, KeyValue) {
+TEST_F (ConfigurationService,UpdateKeyValue) {
   // test update success
-  EXPECT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
+  EXPECT_TRUE( cs->Update("instrument1:sources:motor4:type","new-ca-motor") );
   // test new value
-  EXPECT_NE( cs.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
-  EXPECT_EQ( cs.Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
+  EXPECT_NE( cs->Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  EXPECT_EQ( cs->Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
   // revert
-  EXPECT_TRUE( cs.Update("instrument1:sources:motor4:type","ca-motor") );
-  EXPECT_EQ( cs.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  EXPECT_TRUE( cs->Update("instrument1:sources:motor4:type","ca-motor") );
+  EXPECT_EQ( cs->Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
   
 }
 
-TEST (Update, MultipleValues) {
+TEST_F (ConfigurationService,UpdateMultipleValues) {
 
   std::vector<std::string> content;
 
-  EXPECT_EQ( cs.Query("instrument1:sources:motor1:address-backup").size() ,0);
+  EXPECT_EQ( cs->Query("instrument1:sources:motor1:address-backup").size() ,0);
 
   // add field and test size
-  EXPECT_TRUE( cs.Update("instrument1:sources:motor1:address-backup","IOC:m1-backup") );
-  EXPECT_EQ( cs.Query("instrument1:sources:motor1:address-backup").size(), 1 );
+  EXPECT_TRUE( cs->Update("instrument1:sources:motor1:address-backup","IOC:m1-backup") );
+  EXPECT_EQ( cs->Query("instrument1:sources:motor1:address-backup").size(), 1 );
 
   // add new field to parent
-  EXPECT_TRUE( cs.Update("instrument1:x:sources:temp1:address","STC1") );
+  EXPECT_TRUE( cs->Update("instrument1:x:sources:temp1:address","STC1") );
 
-  content = cs.Query("instrument1:x:sources:temp1");
+  content = cs->Query("instrument1:x:sources:temp1");
   EXPECT_TRUE( content.size() > 0);
   EXPECT_FALSE( content.size() > 1);
   
-  EXPECT_TRUE( cs.Update("instrument1:x:sources:temp1:type","pv-temp") );
-  content = cs.Query("instrument1:x:sources:temp1");
+  EXPECT_TRUE( cs->Update("instrument1:x:sources:temp1:type","pv-temp") );
+  content = cs->Query("instrument1:x:sources:temp1");
   EXPECT_EQ( content.size(),2);
 }
 
 
-TEST (Delete, KeyValue) {
+TEST_F (ConfigurationService,DeleteKeyValue) {
 
   // test key existence
-  ASSERT_TRUE( cs.Query("instrument1:sources:motor4:type").size() > 0 );
+  ASSERT_TRUE( cs->Query("instrument1:sources:motor4:type").size() > 0 );
   // test delete success
-  EXPECT_TRUE( cs.Delete("instrument1:sources:motor4:type") );
+  EXPECT_TRUE( cs->Delete("instrument1:sources:motor4:type") );
 
   // test key removed
-  EXPECT_FALSE( cs.Query("instrument1:sources:motor4:type").size() > 0 );
+  EXPECT_FALSE( cs->Query("instrument1:sources:motor4:type").size() > 0 );
 
   // test failure in deleting non-existing key
-  EXPECT_FALSE( cs.Delete("instrument1:sources:motor4:type") );
+  EXPECT_FALSE( cs->Delete("instrument1:sources:motor4:type") );
 
 }
 
-TEST (Delete, MultipleValues) {
+TEST_F (ConfigurationService,DeleteMultipleValues) {
 
-  ASSERT_TRUE( cs.Query("instrument1:sources").size() > 0 );
+  ASSERT_TRUE( cs->Query("instrument1:sources").size() > 0 );
 
   // test delete success
-  EXPECT_TRUE( cs.Delete("instrument1:sources") );
+  EXPECT_TRUE( cs->Delete("instrument1:sources") );
 
   // test missing key
-  EXPECT_FALSE( cs.Query("instrument1:sources").size() > 0 );
+  EXPECT_FALSE( cs->Query("instrument1:sources").size() > 0 );
   // test other keys not affected
-  for (auto& key : cs.Query("instrument1") ) {
-    EXPECT_TRUE( cs.Query("instrument1:"+key).size() > 0 );
+  for (auto& key : cs->Query("instrument1") ) {
+    EXPECT_TRUE( cs->Query("instrument1:"+key).size() > 0 );
   }
   //  test failure in deleting non-existing key
-  EXPECT_FALSE( cs.Delete("instrument1:sources") );
+  EXPECT_FALSE( cs->Delete("instrument1:sources") );
 
   // test deletion parent when empty
-  EXPECT_TRUE( cs.Delete("instrument1:experiment:id") );
-  EXPECT_TRUE( cs.Delete("instrument1:experiment:name") );
-  EXPECT_FALSE( (cs.Query("instrument1:experiment").size() > 0 ) );
+  EXPECT_TRUE( cs->Delete("instrument1:experiment:id") );
+  EXPECT_TRUE( cs->Delete("instrument1:experiment:name") );
+  EXPECT_FALSE( (cs->Query("instrument1:experiment").size() > 0 ) );
   
 }
 
 
 
-TEST (Communications, SubscribeTopic) {
+TEST_F (ConfigurationService,CommunicationsSubscribeTopic) {
 
   CM publisher(redis_server,redis_port);
   int n_recv = 0;
@@ -197,7 +215,7 @@ TEST (Communications, SubscribeTopic) {
                      std::placeholders::_2,
                      std::ref(n_recv));
 
-  ASSERT_TRUE( cs.Subscribe("message:1",f) );
+  ASSERT_TRUE( cs->Subscribe("message:1",f) );
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   
   publisher.Publish(std::string("message:1"),"a");
@@ -227,7 +245,7 @@ TEST (Communications, SubscribeTopic) {
   publisher.Disconnect();
 }
 
-TEST (Communications, NonSubscribedTopics) {
+TEST_F (ConfigurationService,CommunicationsNonSubscribedTopics) {
 
   CM publisher(redis_server,redis_port);
   int n_recv = 0;
@@ -237,7 +255,7 @@ TEST (Communications, NonSubscribedTopics) {
                      std::placeholders::_2,
                      std::ref(n_recv));
   
-  ASSERT_TRUE( cs.Subscribe("message:1",f) );
+  ASSERT_TRUE( cs->Subscribe("message:1",f) );
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   
   publisher.Publish(std::string("message:1"),"a");
@@ -274,7 +292,7 @@ TEST (Communications, NonSubscribedTopics) {
 }
 
 
-TEST (Communications, SubscribeMultipleTopics) {
+TEST_F (ConfigurationService,CommunicationsSubscribeMultipleTopics) {
   CM publisher(redis_server,redis_port);
 
   int n_recv = 0;
@@ -283,7 +301,7 @@ TEST (Communications, SubscribeMultipleTopics) {
                      std::placeholders::_2,
                      std::ref(n_recv));
   
-  ASSERT_TRUE( cs.Subscribe("message:*",f) );
+  ASSERT_TRUE( cs->Subscribe("message:*",f) );
 
   // just ensure enough time to connect
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -304,7 +322,7 @@ TEST (Communications, SubscribeMultipleTopics) {
 
 
 
-// TEST (Communications, Notify) {
+// TEST_F (ConfigurationService,Communications, Notify) {
 
 //   int n_recv = 0;
 //   auto f = std::bind(counting_got_message,
@@ -312,18 +330,18 @@ TEST (Communications, SubscribeMultipleTopics) {
 //                      std::placeholders::_2,
 //                      std::ref(n_recv));
   
-//   ASSERT_TRUE( cs.Subscribe("instrument1:sources:motor4:type",f) );
+//   ASSERT_TRUE( cs->Subscribe("instrument1:sources:motor4:type",f) );
 //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
+//   ASSERT_TRUE( cs->Update("instrument1:sources:motor4:type","new-ca-motor") );
 //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
-//   EXPECT_TRUE( cs.Notify() );
+//   EXPECT_TRUE( cs->Notify() );
 //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 //   EXPECT_EQ( n_recv,1 );
 
-//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","IOC:ca-motor") );
-//   EXPECT_TRUE( cs.Notify() );
+//   ASSERT_TRUE( cs->Update("instrument1:sources:motor4:type","IOC:ca-motor") );
+//   EXPECT_TRUE( cs->Notify() );
 //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 //   EXPECT_EQ( n_recv,2 );
@@ -331,7 +349,7 @@ TEST (Communications, SubscribeMultipleTopics) {
 // }
 
 
-// TEST (Communications, Notify2) {
+// TEST_F (ConfigurationService,Communications, Notify2) {
 
 //   int n_recv = 0;
 //   auto f = std::bind(counting_got_message,
@@ -339,10 +357,10 @@ TEST (Communications, SubscribeMultipleTopics) {
 //                      std::placeholders::_2,
 //                      std::ref(n_recv));
   
-//   ASSERT_TRUE( cs.Subscribe("instrument1:sources:motor4:*",f) );
-//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:type","new-ca-motor") );
-//   ASSERT_TRUE( cs.Update("instrument1:sources:motor4:address","IOC:ca-motor") );
-//   EXPECT_TRUE( cs.Notify() );
+//   ASSERT_TRUE( cs->Subscribe("instrument1:sources:motor4:*",f) );
+//   ASSERT_TRUE( cs->Update("instrument1:sources:motor4:type","new-ca-motor") );
+//   ASSERT_TRUE( cs->Update("instrument1:sources:motor4:address","IOC:ca-motor") );
+//   EXPECT_TRUE( cs->Notify() );
 
 //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -351,11 +369,11 @@ TEST (Communications, SubscribeMultipleTopics) {
   
 // }
 
-TEST (Connection, Disconnect) {
-  EXPECT_EQ( cs.DataConnectionStatus(),       configuration::CONNECTED );
-  EXPECT_EQ( cs.PublisherConnectionStatus(),  configuration::CONNECTED );
-  EXPECT_EQ( cs.SubscriberConnectionStatus(), configuration::CONNECTED );  
-  EXPECT_TRUE( cs.Disconnect() );
+TEST_F (ConfigurationService,Disconnect) {
+  EXPECT_EQ( cs->DataConnectionStatus(),       configuration::CONNECTED );
+  EXPECT_EQ( cs->PublisherConnectionStatus(),  configuration::CONNECTED );
+  EXPECT_EQ( cs->SubscriberConnectionStatus(), configuration::CONNECTED );  
+  EXPECT_TRUE( cs->Disconnect() );
 }
 
 
@@ -363,17 +381,32 @@ TEST (Connection, Disconnect) {
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
-  if(argc > 1)
-    path = std::string(argv[1])+"/";
-  else
-    path = "../";
+  if(std::string(argv[0]).substr(0,5) == "build")
+    ConfigurationService::path = "./";
+  
+  //std::cout << (ConfigurationService::path+instrument_file) << std::endl;
 
-  // hack for automated testing
-  {
-    redox::Redox rdx;
-    if( !rdx.connect(redis_server.c_str()) )
-      redis_server="localhost";
+  for(int i=1;i<argc;++i) {
+    size_t found = std::string(argv[i]).find("=");
+    if( std::string(argv[i]).substr(0,found) == "--port")
+      ConfigurationService::redis_port = std::atoi(std::string(argv[i]).substr(found+1).c_str());
+    if( std::string(argv[i]).substr(0,found) ==  "--server")
+      ConfigurationService::redis_server = std::string(argv[i]).substr(found+1);
+    if( ( std::string(argv[i]).substr(0,found) ==  "--help" ) || 
+	(std::string(argv[i]).substr(0,1) == "-h") ) {
+      std::cout << "\nOptions: " << "\n"
+		<< "\t--server=<address>\n"
+		<< "\t--port=<port>\n";
+    }
+
   }
+
+  // // hack for automated testing
+  // {
+  //   redox::Redox rdx;
+  //   if( !rdx.connect(redis_server.c_str()) )
+  //     redis_server="localhost";
+  // }
       
   return RUN_ALL_TESTS();
 }

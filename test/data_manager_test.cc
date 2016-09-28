@@ -3,10 +3,6 @@
 
 #include <configuration.hpp>
 
-std::string path;
-const char* instrument_file = "sample/example_instrument.js";
-const char* new_instrument_file = "sample/example_instrument2.js";
-
 std::string read_config_file(const char* s) {
   std::ifstream in;
   in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
@@ -18,73 +14,95 @@ std::string read_config_file(const char* s) {
   }
   std::string config,buf;
   while(!in.eof()) {
-     std::getline(in, buf,'\t');
-     config += buf;
+    std::getline(in, buf,'\t');
+    config += buf;
   }
   in.close();
   return config;
 }
 
-std::string redis_server="192.168.10.11";
-static const int redis_port=6379;
 
+const char* instrument_file = "sample/example_instrument.js";
+const char* new_instrument_file = "sample/example_instrument2.js";
 
 typedef configuration::communicator::MockCommunicator CM;
 using DM = configuration::data::RedisDataManager<CM>;
 
+class DataManager : public ::testing::Test {
+  
+protected:
+  
+  virtual void SetUp() {
+    comm = std::make_shared<CM>(redis_server.c_str(),redis_port);
+    dm = std::make_shared<DM>(redis_server.c_str(),redis_port,*comm);
+  }
+  
+  std::shared_ptr<CM> comm;
+  std::shared_ptr<DM> dm;
 
-CM comm(redis_server.c_str(),redis_port);
-DM dm(redis_server.c_str(),redis_port,comm);
+public:
+  static std::string path;
+  static std::string redis_server;
+  static int redis_port;
 
-using namespace configuration::data;
+};
 
-TEST (DataManager, ValidString) {
-  EXPECT_TRUE( dm.IsValidString( read_config_file((path+instrument_file).c_str()) ) );
+std::string DataManager::path         = "../";
+std::string DataManager::redis_server = "localhost";
+int DataManager::redis_port   = 6379;
+
+
+
+
+//using namespace configuration::data;
+
+TEST_F (DataManager, ValidString) {
+  EXPECT_TRUE( dm->IsValidString( read_config_file((DataManager::path+instrument_file).c_str()) ) );
 }
 
-TEST (DataManager, AddConfig) {
+TEST_F (DataManager, AddConfig) {
   //  DM dm(redis_server,redis_port,comm);
 
-  dm.Clear();
-  std::string s(read_config_file((path+instrument_file).c_str()));
-  EXPECT_TRUE( dm.AddConfig(s) );
+  dm->Clear();
+  std::string s(read_config_file((DataManager::path+instrument_file).c_str()));
+  EXPECT_TRUE( dm->AddConfig(s) );
 }
 
-TEST (DataManager, AddNewConfig) {
+TEST_F (DataManager, AddNewConfig) {
   // DM< FCM> dm(redis_server,redis_port,comm);
-  dm.Clear();
-  EXPECT_TRUE( dm.AddConfig( read_config_file((path+instrument_file).c_str()) ) );
+  dm->Clear();
+  EXPECT_TRUE( dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) ) );
   // add new config on top of existing one
-  EXPECT_FALSE( dm.AddConfig( read_config_file((path+instrument_file).c_str()) ) );
-  // EXPECT_TRUE( dm.AddConfig( read_config_file((path+new_instrument_file).c_str()) ) );
+  EXPECT_FALSE( dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) ) );
+  // EXPECT_TRUE( dm->AddConfig( read_config_file((DataManager::path+new_instrument_file).c_str()) ) );
 }
 
-TEST (DataManager, QueryHash) {
+TEST_F (DataManager, QueryHash) {
   // DM< FCM> dm(redis_server,redis_port,comm);
-   dm.Clear();
-   dm.AddConfig( read_config_file((path+instrument_file).c_str()) );
+  dm->Clear();
+  dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) );
   
   // an existing hash key must return a vector containing one element
   std::string key("instrument1:sources:motor2:type");
-  ASSERT_EQ( dm.Query(key).size(), 1 );
-  EXPECT_EQ( dm.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
-   //  a non-exising hash key must return an empty vector
-  EXPECT_EQ( dm.Query("instrument1:sources:motor4:notype").size(), 0 );
+  ASSERT_EQ( dm->Query(key).size(), 1 );
+  EXPECT_EQ( dm->Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  //  a non-exising hash key must return an empty vector
+  EXPECT_EQ( dm->Query("instrument1:sources:motor4:notype").size(), 0 );
 }
 
-TEST (DataManager, QuerySet) {
+TEST_F (DataManager, QuerySet) {
   // DM< FCM> dm(redis_server,redis_port,comm);
-  dm.Clear();
-  dm.AddConfig( read_config_file((path+instrument_file).c_str()) );
+  dm->Clear();
+  dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) );
   std::vector<std::string> expect_failure = { "type","address","something else"};
   std::vector<std::string> expect_success = { "type","address"};
   std::vector<std::string> content;
 
   // a non-exising hash key must return an empty vector
-  // content = dm.Query("instrument1:sources:nomotor");
+  // content = dm->Query("instrument1:sources:nomotor");
   // EXPECT_TRUE( content.size() == 0 );
 
-  content = dm.Query("instrument1:sources:motor4");
+  content = dm->Query("instrument1:sources:motor4");
 
   // an existing set key must return a vector containing at least one element
   EXPECT_TRUE( content.size() != 0  );
@@ -108,94 +126,90 @@ TEST (DataManager, QuerySet) {
   EXPECT_FALSE( is_true);
 }
 
-TEST (DataManager, UpdateHash) {
+TEST_F (DataManager, UpdateHash) {
   // DM< FCM> dm(redis_server,redis_port,comm);
-  dm.Clear();
-  dm.AddConfig( read_config_file((path+instrument_file).c_str()) );
+  dm->Clear();
+  dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) );
   // test original value
-  ASSERT_EQ( dm.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
-  EXPECT_NE( dm.Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
+  ASSERT_EQ( dm->Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  EXPECT_NE( dm->Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
   // test update success
-  EXPECT_TRUE( dm.Update("instrument1:sources:motor4:type","new-ca-motor") );
+  EXPECT_TRUE( dm->Update("instrument1:sources:motor4:type","new-ca-motor") );
   // test new value
-  EXPECT_NE( dm.Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
-  EXPECT_EQ( dm.Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
+  EXPECT_NE( dm->Query("instrument1:sources:motor4:type")[0], std::string("ca-motor") );
+  EXPECT_EQ( dm->Query("instrument1:sources:motor4:type")[0], std::string("new-ca-motor") );
 }
 
-TEST (DataManager, UpdateSet) {
+TEST_F (DataManager, UpdateSet) {
   // DM< FCM> dm(redis_server,redis_port,comm);
-  dm.Clear();
-  dm.AddConfig( read_config_file((path+instrument_file).c_str()) );
+  dm->Clear();
+  dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) );
   // add new field to config
 
   std::vector<std::string> content;
-  content = dm.Query("instrument1:sources:motor1:address-backup");
+  content = dm->Query("instrument1:sources:motor1:address-backup");
   EXPECT_EQ( content.size(),0);
   
-  EXPECT_TRUE( dm.Update("instrument1:sources:motor1:address-backup","IOC:m1-backup") );
-  content = dm.Query("instrument1:sources:motor1:address-backup");
+  EXPECT_TRUE( dm->Update("instrument1:sources:motor1:address-backup","IOC:m1-backup") );
+  content = dm->Query("instrument1:sources:motor1:address-backup");
 
   // add new field to parent
-  EXPECT_TRUE( dm.Update("instrument1:x:sources:temp1:address","STC1") );
+  EXPECT_TRUE( dm->Update("instrument1:x:sources:temp1:address","STC1") );
 
-  content = dm.Query("instrument1:x:sources:temp1");
+  content = dm->Query("instrument1:x:sources:temp1");
   EXPECT_TRUE( content.size() > 0);
   EXPECT_FALSE( content.size() > 1);
   
-  EXPECT_TRUE( dm.Update("instrument1:x:sources:temp1:type","pv-temp") );
-  content = dm.Query("instrument1:x:sources:temp1");
+  EXPECT_TRUE( dm->Update("instrument1:x:sources:temp1:type","pv-temp") );
+  content = dm->Query("instrument1:x:sources:temp1");
   EXPECT_EQ( content.size(),2);
   
-  //   //  dm.Dump();
+  //   //  dm->Dump();
 }
 
-TEST (DataManager, DeleteHash) {
+TEST_F (DataManager, DeleteHash) {
   // DM< FCM> dm(redis_server,redis_port,comm);
-  dm.Clear();
-  dm.AddConfig( read_config_file((path+instrument_file).c_str()) );
+  dm->Clear();
+  dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) );
   // test key existence
-  int size = dm.Query("instrument1:sources:motor4:type").size();
+  int size = dm->Query("instrument1:sources:motor4:type").size();
   ASSERT_TRUE( size > 0 );
   // test delete success
-  EXPECT_TRUE( dm.Delete("instrument1:sources:motor4:type") );
+  EXPECT_TRUE( dm->Delete("instrument1:sources:motor4:type") );
 
   // test missing key
-  EXPECT_FALSE( dm.Query("instrument1:sources:motor4:type").size() > 0 );
+  EXPECT_FALSE( dm->Query("instrument1:sources:motor4:type").size() > 0 );
 
   // test success in deleting non-existing key
-  EXPECT_FALSE( dm.Delete("instrument1:sources:motor4:type") );
+  EXPECT_FALSE( dm->Delete("instrument1:sources:motor4:type") );
 }
 
-TEST (DataManager, DeleteSet) {
-  // DM< FCM> dm(redis_server,redis_port,comm);
-  dm.Clear();
-  dm.AddConfig( read_config_file((path+instrument_file).c_str()) );
-  // // test key existence
-  // int size = dm.Query("instrument1:sources").size();
-  // ASSERT_TRUE( size > 0 );
+TEST_F (DataManager, DeleteSet) {
+  //  DM< FCM> dm(redis_server,redis_port,comm);
+  dm->Clear();
+  dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) );
+  // test key existence
+  int size = dm->Query("instrument1:sources").size();
+  ASSERT_TRUE( size > 0 );
 
-  // // test delete success
-  // EXPECT_TRUE( dm.Delete("instrument1:sources") );
+  // test delete success
+  EXPECT_TRUE( dm->Delete("instrument1:sources") );
 
-  // // test missing key
-  // EXPECT_FALSE( dm.Query("instrument1:sources").size() > 0 );
-  // // test other keys not affected
-  // for (auto& key : dm.Query("instrument1") ) {
-  //   EXPECT_TRUE( dm.Query("instrument1:"+key).size() > 0 );
-  // }
-  // //  test failure in deleting non-existing key
-  // EXPECT_FALSE( dm.Delete("instrument1:sources") );
+  // test missing key
+  EXPECT_FALSE( dm->Query("instrument1:sources").size() > 0 );
+  // test other keys not affected
+  for (auto& key : dm->Query("instrument1") ) {
+    EXPECT_TRUE( dm->Query("instrument1:"+key).size() > 0 );
+  }
+  //  test failure in deleting non-existing key
+  EXPECT_FALSE( dm->Delete("instrument1:sources") );
 
-  // test deletion parent when empty
-  EXPECT_TRUE( dm.Delete("instrument1:experiment:id") );
-  //  EXPECT_TRUE( dm.Delete("instrument1:experiment:name") );
-  // EXPECT_FALSE( (dm.Query("instrument1:experiment").size() > 0 ) );
+  //  test deletion parent when empty
+  EXPECT_TRUE( dm->Delete("instrument1:experiment:id") );
+  EXPECT_TRUE( dm->Delete("instrument1:experiment:name") );
+  EXPECT_FALSE( (dm->Query("instrument1:experiment").size() > 0 ) );
   
 }
-
-
-
-
 
 
 
@@ -203,19 +217,35 @@ TEST (DataManager, DeleteSet) {
 
 
 int main(int argc, char **argv) {
-  ::testing::InitGoogleTest(&argc, argv);
 
-  if(argc > 1)
-    path = std::string(argv[1])+"/";
-  else
-    path = "../";
+  ::testing::InitGoogleTest(&argc, argv);  
+
+  if(std::string(argv[0]).substr(0,5) == "build")
+    DataManager::path = "./";
   
-  // hack for automated testing
-  {
-    redox::Redox rdx;
-    if( !rdx.connect(redis_server.c_str()) )
-      redis_server="localhost";
+  //std::cout << (DataManager::path+instrument_file) << std::endl;
+
+  for(int i=1;i<argc;++i) {
+    size_t found = std::string(argv[i]).find("=");
+    if( std::string(argv[i]).substr(0,found) == "--port")
+      DataManager::redis_port = std::atoi(std::string(argv[i]).substr(found+1).c_str());
+    if( std::string(argv[i]).substr(0,found) ==  "--server")
+      DataManager::redis_server = std::string(argv[i]).substr(found+1);
+    if( ( std::string(argv[i]).substr(0,found) ==  "--help" ) || 
+	(std::string(argv[i]).substr(0,1) == "-h") ) {
+      std::cout << "\nOptions: " << "\n"
+		<< "\t--server=<address>\n"
+		<< "\t--port=<port>\n";
+    }
+
   }
+
+  // // hack for automated testing
+  // {
+  //   redox::Redox rdx;
+  //   if( !rdx.connect(DataManager::redis_server.c_str()) )
+  //     DataManager::redis_server="localhost";
+  // }
 
   
   return RUN_ALL_TESTS();

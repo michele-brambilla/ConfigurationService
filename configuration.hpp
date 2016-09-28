@@ -6,7 +6,7 @@
 #include <utility>
 
 #include <redis_configuration.hpp>
-//#include <zmq_configuration.hpp>
+#include <zmq_configuration.hpp>
 
 using C=configuration::communicator::RedisCommunicator;
 using D=configuration::data::RedisDataManager<C>;

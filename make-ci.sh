@@ -30,7 +30,7 @@ sudo cp -r googletest/googletest/include/gtest /usr/local/include
 # Make
 mkdir build && cd build
 cmake .. && make
-make test 2>/dev/null
+ctest -V
 #test/communicator_test 2>/dev/null | tee
 #test/configuration_test 2>/dev/null | tee
 #test/data_test 2>/dev/null | tee

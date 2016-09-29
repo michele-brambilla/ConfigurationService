@@ -44,11 +44,19 @@ namespace configuration {
       {
 
 
-        // publisher->connect(std::string("tcp://*:")+std::to_string(zmq_publisher_port));
-
         std::string connect_to=(std::string("tcp://")+
                                 device_server+
-                                ":5554");
+                                ":"+std::to_string(zmq_publisher_port) );
+        try{
+          publisher->connect(connect_to);
+        }
+        catch (std::exception& e) {
+          std::cout << e.what() << std::endl;
+        }
+        
+        connect_to=(std::string("tcp://")+
+                    device_server+
+                    ":"+std::to_string(zmq_subscriber_port) );
         std::cout << connect_to << std::endl;
         try{
           subscriber->connect(connect_to);
@@ -69,54 +77,39 @@ namespace configuration {
 	result_subscriber.get();
       }
 
-      // void PingPong() {
-      //   zmq::message_t prequest (6);
-      //   memcpy ((void *) prequest.data (), "Hello", 5);
-      //   std::cout << "Sending Hello ";
-      //   std::cout.flush();
-
-      //   publisher->send(prequest);
-      //   std::cout << "..." << std::endl;
-        
-      //   std::cout << "Waiting for receiving" << std::endl;
-      //        }
-
       void Disconnect() {
         keep_listening=false;
 	result_subscriber.get();
       }
       
-      // bool Notify() override {
-      //   std::string cmd = "PUBLISH ";
-      //   int nclients;
-      //   bool is_ok = true;
-      //   for(auto& msg : updates) {
-      //     is_ok &= utils::ExecRedisCmd<int>(*publisher,
-      //                                       cmd+msg.first+" "+msg.second,
-      //                                       &nclients);
-      //     if( nclients == 0 )
-      //       log << msg.first << ": no connected clients\n";
-      //   }
-      //   last_notify_time = std::chrono::system_clock::now();
-      //   updates.clear();
-      //   return is_ok;
-      // }
+      bool Notify() override {
+        zmq::message_t prequest (1024);
+        bool is_ok = true;
+        for(auto& msg : updates) {
+	  try {
+            std::string s=msg.first;
+            s+=" : "+msg.second;
+            memcpy ((void *) prequest.data (), s.c_str(), s.size());
+            publisher->send(prequest);
+          }
+          catch (std::exception& e){
+            std::cout << "publisher failure: " << e.what() << std::endl;
+            is_ok = false;
+          }
+        }
 
-      // // bool Publish(const std::string& key,const std::string& status) override {
-      // //   updates.insert(std::pair<std::string,std::string>(key,status) );
-      // //   if(updates.size() > MaxStoredMessages) {
-      // //     log << "Max number of stored messages ("+std::to_string(MaxStoredMessages)+") reached, proceed to notify"
-      // //         << std::endl;
-      // //     return Notify();
-      // //   }
-      // //   total_num_messages++;
-      // //   return true;
-      // // }
+        last_notify_time = std::chrono::system_clock::now();
+        updates.clear();
+        return is_ok;
+      }
 
       bool Subscribe(const std::string& filter) {
-
-	subscriber->setsockopt(ZMQ_SUBSCRIBE,filter.c_str(), filter.length());
-        
+        if( subscriptions.find(filter) == subscriptions.end())
+          subscriber->setsockopt(ZMQ_SUBSCRIBE,filter.c_str(), filter.length());
+        else {
+          log << "Already listening for " << filter << ": command ignored" << std::endl;
+          return false;
+        }
         return true;
       }
       
@@ -125,50 +118,33 @@ namespace configuration {
                      std::function<void(const std::string&,const int&)>,
                      std::function<void(const std::string&)>
                      ) override {
-        
-        subscriber->setsockopt(ZMQ_SUBSCRIBE,filter.c_str(), filter.length());
-
+        if( subscriptions.find(filter) == subscriptions.end())
+          subscriber->setsockopt(ZMQ_SUBSCRIBE,filter.c_str(), filter.length());
+        else {
+          log << "Already listening for " << filter << ": command ignored" << std::endl;
+          return false;
+        }
         return true;
       }
 
       
-      // bool Unsubscribe(const std::string& key,
-      //                  std::function<void(const std::string&,const int&)> got_error = default_got_error
-      //                  ) override {
-      //   bool is_ok = true;
-      //   std::size_t found = key.find("*");
+      bool Unsubscribe(const std::string& filter,
+                       std::function<void(const std::string&,const int&)> got_error = default_got_error
+                       ) override {
+        bool is_ok = true;
 
-      //   if ( found != std::string::npos) {
-      //     std::string short_key(key);
-      //     short_key.pop_back();
-      //     auto list = subscriber->psubscribedTopics();
-      //     if ( list.find(short_key) == list.end() )
-      //       return false;
-      //     subscriber->punsubscribe(short_key.substr(0,found-1),got_error);
-      //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      //     list = subscriber->psubscribedTopics();
-      //     if ( list.find(short_key) == list.end() )
-      //       return false;
+        if( subscriptions.find(filter) != subscriptions.end())
+          subscriber->setsockopt(ZMQ_UNSUBSCRIBE,filter.c_str(), filter.length());
+        else {
+          log << "Not subscribed to " << filter << ": command ignored" << std::endl;
+          return false;
+        }
 
-      //   }
-      //   else {
-      //     subscriber->unsubscribe(key,got_error);
-      //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      //     for( auto& s : subscriber->subscribedTopics())
-      //       if( s == key )
-      //         is_ok = false;
-      //   }
+        return is_ok;
+      }
 
-      //   return is_ok;
-      // }
+      std::set<std::string> ListTopics() { return subscriptions; }
 
-      // std::set<std::string> ListTopics() {
-      //   std::set<std::string> s = subscriber->subscribedTopics();
-      //   s.insert(subscriber->psubscribedTopics().begin(),
-      //            subscriber->psubscribedTopics().end()
-      //            );
-      //   return s;
-      // }
 
       // bool Reconnect() {
 
@@ -196,7 +172,7 @@ namespace configuration {
       
       std::ostream& log;
       // unsigned long int total_num_messages = 0;
-      // unsigned long int total_recv_messages = 0;
+      unsigned long int total_recv_messages = 0;
 
       std::chrono::system_clock::time_point last_notify_time;
 
@@ -204,6 +180,8 @@ namespace configuration {
       int zmq_subscriber_port;
       int zmq_publisher_port;
       std::future<void> result_subscriber;
+
+      std::set<std::string> subscriptions;
 
       // void TimedNotification() {
       //   while(this->keep_counting) {

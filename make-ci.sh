@@ -10,6 +10,12 @@ sudo apt-get install -y libzmq3-dev
 
 cd client
 
+echo "data_addr : localhost" > configuration_service.config
+echo " data_port : 6379" >> configuration_service.config
+echo "comm_addr : localhost" >> configuration_service.config
+echo "comm_port : 6379" >> configuration_service.config
+
+
 # Make gtest
 git clone https://github.com/google/googletest
 cd googletest

@@ -2,6 +2,7 @@ import sys
 import argparse
 import zmq
 
+
 def main(frontend_port,backend_port):
 
     try:
@@ -26,7 +27,6 @@ def main(frontend_port,backend_port):
         backend.close()
         context.term()
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Python-0MQ forwarder for redis updates")
     parser.add_argument("-f","--frontend",
@@ -43,4 +43,7 @@ if __name__ == "__main__":
                         help="0MQ backend port number")
 
     args = parser.parse_args()
+    print args
+
     main(args.frontend,args.backend)
+        

@@ -1,10 +1,10 @@
 [submodule "client/rapidjson"]
 	path = client/rapidjson
-	url = git@github.com:miloyip/rapidjson.git
+	url = https://github.com/miloyip/rapidjson.git
 
 [submodule "client/cppzmq"]
 	path = client/cppzmq
 	url = https://github.com/zeromq/cppzmq.git
 [submodule "client/redox"]
 	path = client/redox
-	url = git@github.com:hmartiro/redox.git
+	url = https://github.com/hmartiro/redox.git

@@ -8,6 +8,8 @@ sudo apt-get update
 sudo apt-get install -y libhiredis-dev libev-dev libgtest-dev redis-server
 sudo apt-get install -y libzmq3-dev
 
+cd client
+
 # Make gtest
 git clone https://github.com/google/googletest
 cd googletest

@@ -213,12 +213,7 @@ TEST_F (DataManager, DeleteSet) {
 
 
 
-
-
-
 int main(int argc, char **argv) {
-
-  std::cout << argv[0] << std::endl;
 
 
   ::testing::InitGoogleTest(&argc, argv);  
@@ -232,16 +227,27 @@ int main(int argc, char **argv) {
       DataManager::path = std::string(argv[0]).substr(0,found+1);      
   }
 
-  std::cout << DataManager::path << std::endl;
+  std::cout << DataManager::path+"configuration_service.config" << std::endl;
+
   //////////////////
   // Reads info from configuration file
-  std::ifstream in(DataManager::path+"configuration_service.config");
+  std::ifstream in;
+  in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
+  try {
+    in.open(DataManager::path+"configuration_service.config");
+  }
+  catch(std::ifstream::failure& e) {
+    throw std::runtime_error(e.what());
+  }
+    
+
   std::string next, sep,value;
   do {
     in >> next >> sep >> value;
     if( next == "data_addr" ) DataManager::redis_server = value;
     if( next == "data_port" ) std::istringstream(value) >> DataManager::redis_port;
   } while(!in.eof() );
+
 
   for(int i=1;i<argc;++i) {
     size_t found = std::string(argv[i]).find("=");

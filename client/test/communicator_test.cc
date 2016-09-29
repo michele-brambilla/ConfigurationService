@@ -296,7 +296,15 @@ int main(int argc, char **argv) {
  
   //////////////////
   // Reads info from configuration file
-  std::ifstream in(CommunicatorManager::path+"configuration_service.config");
+  std::ifstream in;
+  in.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
+  try {
+    in.open(CommunicatorManager::path+"configuration_service.config");
+  }
+  catch(std::ifstream::failure& e) {
+    throw std::runtime_error(e.what());
+  }
+
   std::string next, sep,value;
   do {
     in >> next >> sep >> value;

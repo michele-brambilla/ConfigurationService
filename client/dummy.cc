@@ -248,7 +248,11 @@ void connect (std::shared_ptr<RedisCommunicator>& cm) {
 int main() {
 
   ZmqCommunicator zc("129.129.195.107");
-  zc.PingPong();
+  zc.Subscribe("Hello");
+
+  int i;
+  std::cin >> i;
+
 
 
   // std::shared_ptr<zmq::context_t> context;

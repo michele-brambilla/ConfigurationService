@@ -13,8 +13,8 @@ def run_server(address, backend_port):
         for update in range(10):
             topic = random.randrange(1,10)
             messagedata = "server#%s" % publisher_id
-            print "%s %s" % (topic, messagedata)
-            socket.send("%d %s" % (topic, messagedata))
+            print "Hello %s %s" % (topic, messagedata)
+            socket.send("Hello %d %s" % (topic, messagedata))
             time.sleep(1)
     except Exception, e:
         print e
@@ -29,12 +29,12 @@ def run_client(address, frontend_port):
         socket = context.socket(zmq.SUB)
         print "Collecting updates from server..."
         socket.connect ("tcp://{}:{}".format(address, frontend_port) )
-        topicfilter = "9"
+        topicfilter = "Hello 9"
         socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
         for update_nbr in range(10):
             string = socket.recv()
-            topic, messagedata = string.split()
-            print "> ", topic, messagedata
+#            topic, messagedata = string.split()
+            print "> ", string
     except Exception, e:
         print e
         print "bringing down zmq test client"

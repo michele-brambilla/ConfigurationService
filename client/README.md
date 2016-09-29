@@ -106,3 +106,17 @@ Note: a single test or a subset can be executed using
 ```./test/data_test --gtest_filter="*UpdateSet*"```
 
 Test are not part of the Travis-ci building, due to timeout cause failure
+
+
+0MQ
+---
+To test the 0MQ functionality:
+   * on the server machine
+   ``` python python/configuration_forwarder.py -t 5555 -b 5554 ```
+   * on the transmitter client
+   ```  python python/configuration_forwarder_test.py -s 129.129.195.107 -t 5555```
+   * on the listener client
+   ``` 
+   cd client
+   build/dummy 
+   ```

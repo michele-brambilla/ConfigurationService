@@ -29,100 +29,62 @@ namespace configuration {
       zmq::message_t srequest; 
       
       ZmqCommunicator(const std::string& server,
-                      const int& port=5555,
+                      const int& publisher_port=5555,
+                      const int& subscriber_port=5554,                      
                       std::ostream& logger=std::cerr) 
-        : context(std::make_shared<zmq::context_t>(1)),
+        : keep_listening(true),
+        context(std::make_shared<zmq::context_t>(1)),
           publisher(std::make_shared<zmq::socket_t>(*context, ZMQ_PUB)),
           subscriber(std::make_shared<zmq::socket_t>(*context, ZMQ_SUB)),
           log(logger),
           last_notify_time(std::chrono::system_clock::now()),
-          zmq_server(server),
-          zmq_port(port)
+        device_server(server),
+        zmq_publisher_port(publisher_port),
+        zmq_subscriber_port(subscriber_port)
       {
-        publisher->connect(std::string("tcp://localhost:5555"));//+std::to_string(zmq_port));
-        subscriber->bind(std::string("tcp://*:5554"));//+std::to_string(zmq_port));
-        
 
 
+        // publisher->connect(std::string("tcp://*:")+std::to_string(zmq_publisher_port));
+
+        std::string connect_to=(std::string("tcp://")+
+                                device_server+
+                                ":5554");
+        std::cout << connect_to << std::endl;
+        try{
+          subscriber->connect(connect_to);
+        }
+        catch (std::exception& e) {
+          std::cout << e.what() << std::endl;
+        }
         result_subscriber = std::async(std::launch::async,
 				       &ZmqCommunicator::Listener,this,
                                        default_got_message,
                                        default_got_error,
-                                       default_unsubscribed );
-	
-        // publisher->connect(redis_server, redis_port,
-        //                    std::bind(utils::redis_connection_callback,
-        //                              std::placeholders::_1,
-        //                              std::ref(publisher_connection_status)));
-        // subscriber->connect(redis_server, redis_port,
-        //                     std::bind(utils::redis_connection_callback,
-        //                               std::placeholders::_1,
-        //                               std::ref(subscriber_connection_status)));
-        
-        // if( (publisher_connection_status != redox::Redox::CONNECTED) ||
-        //     (subscriber_connection_status != redox::Redox::CONNECTED) ) {
-        //   log << "Communicator can't connect to REDIS\n";
-        //   throw std::runtime_error("Can't connect to REDIS server");
-        // }
+                                       default_unsubscribed 
+                                       );
       }
 
       ~ZmqCommunicator() {
+        keep_listening=false;
 	result_subscriber.get();
-        // subscriber->disconnect();
-        // publisher->disconnect();
-        // keep_counting = false;
-        // if(t.joinable())
-        //   t.join();
       }
 
+      // void PingPong() {
+      //   zmq::message_t prequest (6);
+      //   memcpy ((void *) prequest.data (), "Hello", 5);
+      //   std::cout << "Sending Hello ";
+      //   std::cout.flush();
 
-      void Listener( std::function<void(const std::string&,
-                                        const std::string&)> f,
-                     std::function<void(const std::string&,
-                                        const int&)> g = default_got_error,
-                     std::function<void(const std::string&)> h = default_unsubscribed) {
-	while(true) {
-	  subscriber->recv(&srequest);
-	  std::cout << "Received " << std::string((char*)srequest.data()
-                                                  ).substr(0,srequest.size()) << std::endl;	
-	  f("hello","ok");
-	}
-      }
-
-
-      
-      void PingPong() {
-	std::string filter("H");
-	subscriber->setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
-        zmq::message_t prequest (6);
-        memcpy ((void *) prequest.data (), "Hello", 5);
-        std::cout << "Sending Hello ";
-        std::cout.flush();
-
-
-	
-        publisher->send(prequest);
-        std::cout << "..." << std::endl;
+      //   publisher->send(prequest);
+      //   std::cout << "..." << std::endl;
         
-        std::cout << "Waiting for receiving" << std::endl;
-          
+      //   std::cout << "Waiting for receiving" << std::endl;
+      //        }
 
-        
-
-
-
+      void Disconnect() {
+        keep_listening=false;
+	result_subscriber.get();
       }
-
-      // void Disconnect() {
-      //   publisher->disconnect();
-      //   subscriber->disconnect();
-      //   if(  (publisher_connection_status != redox::Redox::DISCONNECTED) ||
-      //        (subscriber_connection_status != redox::Redox::DISCONNECTED) ) {
-      //     throw std::runtime_error("Can't disconnect from REDIS server: error "+
-      //                              std::to_string(publisher_connection_status)+","+
-      //                              std::to_string(subscriber_connection_status) );
-      //   }
-      // }
       
       // bool Notify() override {
       //   std::string cmd = "PUBLISH ";
@@ -151,58 +113,23 @@ namespace configuration {
       // //   return true;
       // // }
 
-      // bool Subscribe(const std::string& key) {
-      //   bool is_ok = true;
+      bool Subscribe(const std::string& filter) {
+
+	subscriber->setsockopt(ZMQ_SUBSCRIBE,filter.c_str(), filter.length());
         
-      //   auto got_message = [&](const std::string& topic, const std::string& msg) {
-      //     total_recv_messages++;
-      //     this->log << topic << ": " << msg << std::endl;
-      //   };
-      //   auto  subscribed = [&](const std::string& topic) {
-      //     this->log << "> Subscribed to " << topic << std::endl;
-      //   };
-      //   auto unsubscribed = [&](const std::string& topic) {
-      //     this->log << "> Unsubscribed from " << topic << std::endl;
-      //   };
-      //   auto got_error = [&](const std::string& topic, const int& id_error) {
-      //     this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
-      //     is_ok = false;
-      //   };
-        
-      //   if ( (key).find("*")!=std::string::npos)
-      //     subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
-      //   else
-      //     subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
-      //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        
-      //   return is_ok;
-      // }
+        return true;
+      }
       
-      // bool Subscribe(const std::string& key,
-      //                std::function<void(const std::string&,const std::string&)> got_message, // got message
-      //                std::function<void(const std::string&,const int&)> got_error = default_got_error,
-      //                std::function<void(const std::string&)> unsubscribed = default_unsubscribed
-      //                ) override {
-
-      //   log << "called subscribe (3) " << std::endl;
-      //   auto subscribed = [&](const std::string& topic) {
-      //     this->log << "> Subscribed to " << topic << std::endl;
-      //   };
-
-      //   if ( (key).find("*")!=std::string::npos) {
-      //     log << "called psubscribe " << std::endl;
-      //     subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
-      //   }
-      //   else {
-      //     subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
-      //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      //     std::set<std::string> topic_list = subscriber->subscribedTopics();	
-      //     if( topic_list.find(key) == topic_list.end() )
-      //       return false;
-      //   }
+      bool Subscribe(const std::string& filter,
+                     std::function<void(const std::string&,const std::string&)>, // got message
+                     std::function<void(const std::string&,const int&)>,
+                     std::function<void(const std::string&)>
+                     ) override {
         
-      //   return true;
-      // }
+        subscriber->setsockopt(ZMQ_SUBSCRIBE,filter.c_str(), filter.length());
+
+        return true;
+      }
 
       
       // bool Unsubscribe(const std::string& key,
@@ -262,6 +189,7 @@ namespace configuration {
       // int NumRecvMessages() const { return total_recv_messages; }
       bool keep_counting = true;
     private:
+      bool keep_listening;
       std::shared_ptr<zmq::context_t> context;
       std::shared_ptr<zmq::socket_t> publisher;
       std::shared_ptr<zmq::socket_t> subscriber;
@@ -272,8 +200,9 @@ namespace configuration {
 
       std::chrono::system_clock::time_point last_notify_time;
 
-      std::string zmq_server;
-      int zmq_port;
+      std::string device_server;
+      int zmq_subscriber_port;
+      int zmq_publisher_port;
       std::future<void> result_subscriber;
 
       // void TimedNotification() {
@@ -286,6 +215,25 @@ namespace configuration {
       // }
       
       
+      void Listener( std::function<void(const std::string&,
+                                        const std::string&)>&& f=default_got_message,
+                     std::function<void(const std::string&,
+                                        const int&)> g = default_got_error,
+                     std::function<void(const std::string&)> h = default_unsubscribed
+                     ) {
+	while(keep_listening) {
+
+	  try {
+            subscriber->recv(&srequest);
+            f("Received",std::string((char*)srequest.data()).substr(0,srequest.size()));
+          }
+          catch (std::exception& e){
+            g(e.what(),-1);
+          }
+          //          if(!keep_listening) break;
+	}
+
+      }
       
 
       

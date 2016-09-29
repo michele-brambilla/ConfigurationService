@@ -29,71 +29,75 @@ namespace configuration {
       zmq::message_t srequest; 
       
       ZmqCommunicator(const std::string& server,
-                      const int& port=5555,
+                      const int& publisher_port=5555,
+                      const int& subscriber_port=5554,                      
                       std::ostream& logger=std::cerr) 
         : context(std::make_shared<zmq::context_t>(1)),
           publisher(std::make_shared<zmq::socket_t>(*context, ZMQ_PUB)),
           subscriber(std::make_shared<zmq::socket_t>(*context, ZMQ_SUB)),
           log(logger),
           last_notify_time(std::chrono::system_clock::now()),
-          zmq_server(server),
-          zmq_port(port)
+        device_server(server),
+          zmq_publisher_port(publisher_port),
+        zmq_subscriber_port(subscriber_port)
       {
-        publisher->connect(std::string("tcp://localhost:5555"));//+std::to_string(zmq_port));
-        subscriber->bind(std::string("tcp://*:5554"));//+std::to_string(zmq_port));
-        
 
+
+        // publisher->connect(std::string("tcp://*:")+std::to_string(zmq_publisher_port));
+
+        std::string connect_to=(std::string("tcp://")+
+                                device_server+
+                                ":5554");
+        std::cout << connect_to << std::endl;
+        try{
+          subscriber->connect(connect_to);
+        }
+        catch (std::exception& e) {
+          std::cout << e.what() << std::endl;
+        }
+      //+std::to_string(zmq_subscriber_port));
 
         result_subscriber = std::async(std::launch::async,
 				       &ZmqCommunicator::Listener,this,
                                        default_got_message,
                                        default_got_error,
-                                       default_unsubscribed );
-	
-        // publisher->connect(redis_server, redis_port,
-        //                    std::bind(utils::redis_connection_callback,
-        //                              std::placeholders::_1,
-        //                              std::ref(publisher_connection_status)));
-        // subscriber->connect(redis_server, redis_port,
-        //                     std::bind(utils::redis_connection_callback,
-        //                               std::placeholders::_1,
-        //                               std::ref(subscriber_connection_status)));
-        
-        // if( (publisher_connection_status != redox::Redox::CONNECTED) ||
-        //     (subscriber_connection_status != redox::Redox::CONNECTED) ) {
-        //   log << "Communicator can't connect to REDIS\n";
-        //   throw std::runtime_error("Can't connect to REDIS server");
-        // }
+                                       default_unsubscribed 
+                                       );
+
+        // result_subscriber = std::async(std::launch::async,
+	// 			       &ZmqCommunicator::Listener,this);
+
       }
 
       ~ZmqCommunicator() {
 	result_subscriber.get();
-        // subscriber->disconnect();
-        // publisher->disconnect();
-        // keep_counting = false;
-        // if(t.joinable())
-        //   t.join();
       }
 
 
       void Listener( std::function<void(const std::string&,
-                                        const std::string&)> f,
+                                        const std::string&)>&& f=default_got_message,
                      std::function<void(const std::string&,
                                         const int&)> g = default_got_error,
-                     std::function<void(const std::string&)> h = default_unsubscribed) {
+                     std::function<void(const std::string&)> h = default_unsubscribed
+                     ) {
 	while(true) {
 	  subscriber->recv(&srequest);
 	  std::cout << "Received " << std::string((char*)srequest.data()
                                                   ).substr(0,srequest.size()) << std::endl;	
-	  f("hello","ok");
+          f("hello","ok");
 	}
       }
 
 
       
       void PingPong() {
+
 	std::string filter("H");
-	subscriber->setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.length());
+	subscriber->setsockopt(ZMQ_SUBSCRIBE,filter.c_str(), filter.length());
+	subscriber->setsockopt(ZMQ_SUBSCRIBE,"J", 1);
+	subscriber->setsockopt(ZMQ_SUBSCRIBE,"K", 1);
+
+
         zmq::message_t prequest (6);
         memcpy ((void *) prequest.data (), "Hello", 5);
         std::cout << "Sending Hello ";
@@ -272,8 +276,9 @@ namespace configuration {
 
       std::chrono::system_clock::time_point last_notify_time;
 
-      std::string zmq_server;
-      int zmq_port;
+      std::string device_server;
+      int zmq_subscriber_port;
+      int zmq_publisher_port;
       std::future<void> result_subscriber;
 
       // void TimedNotification() {

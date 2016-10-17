@@ -26,7 +26,7 @@ const char* instrument_file = "sample/example_instrument.js";
 const char* new_instrument_file = "sample/example_instrument2.js";
 
 typedef configuration::communicator::MockCommunicator CM;
-using DM = configuration::data::RedisDataManager<CM>;
+using DM = configuration::data::RedisDataManager;
 
 class DataManager : public ::testing::Test {
   
@@ -34,7 +34,7 @@ protected:
   
   virtual void SetUp() {
     comm = std::make_shared<CM>(redis_server.c_str(),redis_port);
-    dm = std::make_shared<DM>(redis_server.c_str(),redis_port,*comm);
+    dm = std::make_shared<DM>(redis_server.c_str(),redis_port,comm->updates);
   }
   
   std::shared_ptr<CM> comm;

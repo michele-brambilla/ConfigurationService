@@ -9,7 +9,7 @@
 #include <zmq_configuration.hpp>
 
 using C=configuration::communicator::RedisCommunicator;
-using D=configuration::data::RedisDataManager<C>;
+using D=configuration::data::RedisDataManager;
 
 
 #if __cplusplus == 201402L // C++14
@@ -48,7 +48,7 @@ namespace configuration {
                          const int& comm_port=6379,
                          std::ostream& logger=std::cerr) : log(logger) {
       cm = make_unique<CommunicationManager>(comm_server,comm_port);
-      dm = make_unique<DataManager>(data_server,data_port,*cm);
+      dm = make_unique<DataManager>(data_server,data_port,cm->updates);
       log << "CommunicationManager addr = " << cm.get() << std::endl;
       log << "DataManager addr = " << dm.get() << std::endl;
     }

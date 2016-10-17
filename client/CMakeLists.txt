@@ -29,8 +29,10 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/redox")
 link_directories("${PROJECT_SOURCE_DIR}/redox/build")
 
 add_library( configmanager configuration.cc
-  redis_configuration.cc redis_utils.cc
-  basic_communicator.cc )
+  redis_configuration.cc
+  redis_utils.cc
+  basic_communicator.cc
+  container.cc )
 
 add_executable (dummy dummy.cc) 
 

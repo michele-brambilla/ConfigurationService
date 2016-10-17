@@ -32,7 +32,7 @@ void counting_got_message(const std::string &,const std::string &,int& count)  {
 
 
 using CM = configuration::communicator::RedisCommunicator;
-using DM = configuration::data::RedisDataManager<CM>;
+using DM = configuration::data::RedisDataManager;
 using Configuration = configuration::ConfigurationManager<DM,CM>;
 
 
@@ -75,7 +75,7 @@ TEST_F (ConfigurationService,ValidConfiguration) {
   std::string in = read_config_file((path+instrument_file).c_str()); 
   {
     CM c(redis_server,redis_port);
-    DM d(redis_server,redis_port,c);
+    DM d(redis_server,redis_port,c.updates);
     d.Clear();
   }
   EXPECT_TRUE(cs->AddConfig(in));

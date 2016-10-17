@@ -35,7 +35,7 @@ std::string data_addr,comm_addr;
 int data_port,comm_port;
 
 typedef RedisCommunicator CM;
-typedef RedisDataManager<CM> DM;
+typedef RedisDataManager DM;
 
 
 void parse(int,char**);

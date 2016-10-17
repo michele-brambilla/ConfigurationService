@@ -20,7 +20,6 @@ namespace configuration {
     
     /////////////////////
     // Redis data manager
-    template<typename Communicator>
     struct RedisDataManager  : public DataManager
     {
       typedef RedisDataManager self_t;
@@ -28,10 +27,10 @@ namespace configuration {
       
       RedisDataManager(const std::string& redis_server,
                        const int& redis_port,
-                       Communicator& communicator,
+                       container::MultimapContainer& u,
                        std::ostream& logger=std::cerr) : address(redis_server), port(redis_port),
         rdx(std::make_shared<redox::Redox>(std::cout,redox::log::Level::Fatal)),
-        log(logger), updates(communicator) {
+        log(logger), updates(u) {
         
         auto f = std::bind(utils::redis_connection_callback,
                            std::placeholders::_1,
@@ -73,7 +72,7 @@ namespace configuration {
       
       void Clear() override { rdx->command<std::string>({"FLUSHALL"}); }
       
-      redox::Redox& redox() { return rdx; } 
+      redox::Redox& redox() { return (*rdx); } 
 
     private:
 
@@ -81,7 +80,7 @@ namespace configuration {
       int port;
       std::shared_ptr<redox::Redox> rdx;
       std::ostream& log;
-      Communicator& updates;
+      container::MultimapContainer& updates;
 
       void Reconnect() {
         log << "Error: can't connect to redis database. Trying reconnect" << std::endl;
@@ -126,14 +125,15 @@ namespace configuration {
         for(auto& v : value) {
           ok = AddToHash(key,v);
           if( ok )
-            updates.Publish(key,"a");
+            updates.insert(std::pair<std::string,std::string>(key,"a") );
           is_ok &= ok;
         }
         return is_ok;
       }
       bool AddToHash(const std::string& key, const std::string& value) override {
         std::size_t found = key.find_last_of(":");
-        updates.Publish(key,"a");
+        updates.insert(std::pair<std::string,std::string>(key,"a") );
+            //        updates.Publish(key,"a");
         return utils::ExecRedisCmd<int>(*rdx,std::string("HSET ")+key.substr(0,found)+" "+key.substr(found+1)+" "+value);
       }
       
@@ -142,7 +142,8 @@ namespace configuration {
         bool ok;
         ok = utils::ExecRedisCmd<utils::typelist::DEL_t>(*rdx,std::string("SREM ")+parent+" "+name);
         if( ok )
-          updates.Publish(parent,"u");
+          updates.insert(std::pair<std::string,std::string>(parent,"u") );
+        //          updates.Publish(parent,"u");
         is_ok &= ok;
         // if parents gets empty, delete
         int nelem;
@@ -157,14 +158,16 @@ namespace configuration {
         utils::ExecRedisCmd<utils::typelist::KEYS_t>(*rdx,cmd,children_list);
         for( auto& c : children_list ) {
           if ( utils::ExecRedisCmd<utils::typelist::DEL_t>(*rdx,"DEL "+c) )
-            updates.Publish(c,"d");
+            updates.insert(std::pair<std::string,std::string>(c,"d") );
+          //            updates.Publish(c,"d");
         }          
         return children_list.size();
       }
 
 
       bool RemoveKey(const std::string& key) override {
-        updates.Publish(key,"d");
+        updates.insert(std::pair<std::string,std::string>(key,"d") );
+        //        updates.Publish(key,"d");
         std::string key_type;
 	bool is_ok = utils::ExecRedisCmd<std::string>(*rdx,std::string("TYPE ")+key,key_type);
         bool ok;
@@ -180,14 +183,17 @@ namespace configuration {
         std::size_t found = key.find_last_of(":");
         is_ok &= RemoveFromParent(key.substr(0,found),key.substr(found+1));
         ok = utils::ExecRedisCmd<int>(*rdx,std::string("DEL ")+key);
-        if(ok)  updates.Publish(key,"d");
-
+        if(ok)  {
+          updates.insert(std::pair<std::string,std::string>(key,"d") );
+          //updates.Publish(key,"d");
+        }
         return (is_ok && ok);
       }
       
       bool RemoveHash(const std::string& hash,const std::string& key) override {
         if(utils::ExecRedisCmd<int>(*rdx,std::string("HDEL ")+hash+" "+key)) {
-	  updates.Publish(key,"d");
+          updates.insert(std::pair<std::string,std::string>(key,"d") );
+          //	  updates.Publish(key,"d");
 	  return true;
 	}
         return false;
@@ -198,14 +204,16 @@ namespace configuration {
         if (found == std::string::npos ) 
 	  return false;
         std::string cmd = std::string("HSET ")+key.substr(0,found)+" "+key.substr(found+1)+" "+value;
-        updates.Publish(key,"u");
+        updates.insert(std::pair<std::string,std::string>(key,"u") );
+          //updates.Publish(key,"u");
         return utils::ExecRedisCmd<int>(*rdx,cmd);
       }
 
 
       bool AddToParent(const std::string& key,const std::string& value) override {
         std::string cmd=std::string("SADD ")+key+" "+value;
-        updates.Publish(key,"u");
+        updates.insert(std::pair<std::string,std::string>(key,"u") );
+          //updates.Publish(key,"u");
         return utils::ExecRedisCmd<int>(*rdx,cmd);;
       }
 

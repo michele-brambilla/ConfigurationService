@@ -8,6 +8,8 @@
 #include <map>
 #include <future>
 
+#include <container.hpp>
+
 namespace configuration {
   namespace communicator {
 
@@ -90,9 +92,9 @@ namespace configuration {
 
       const int NumMessages() const { return updates.size(); }
       const int NumRecvMessages() const { return total_recv_messages; }
-      
+
+      container::MultimapContainer updates;
     protected:
-      std::multimap<std::string,std::string> updates;
       unsigned long int total_num_messages = 0;
       unsigned long int total_recv_messages = 0;
 

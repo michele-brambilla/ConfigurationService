@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
                                                 comm_addr.c_str(),comm_port);
 
   configuration::utils::typelist::KEYS_t key_list;
-    std::string action,value;
+  std::string action,value;
   int sep;
 
   

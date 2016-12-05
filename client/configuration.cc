@@ -1,6 +1,5 @@
 #include <configuration.hpp>
 
-
   
 void configuration::default_got_message(const std::string & t,const std::string & c)  {
   std::cerr << "Using function callback > "<< t << "\t" << c << std::endl;
@@ -22,7 +21,7 @@ namespace configuration {
   int Init(const char* address="localhost",
            const int& port=6379) {
     std::cout << "creating configuration manager instance" << std::endl;
-    configuration_manager = make_unique<ConfigurationManager<D,C> >(address,port);
+    //    configuration_manager = make_unique<ConfigurationManager<D,C> >(address,port,);
     //ConfigurationManager<D,C> config(address,port);
     return 0;
   }

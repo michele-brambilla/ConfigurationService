@@ -34,7 +34,7 @@ protected:
   
   virtual void SetUp() {
     comm = std::make_shared<CM>(redis_server.c_str(),redis_port);
-    dm = std::make_shared<DM>(redis_server.c_str(),redis_port,comm->updates);
+    dm = std::make_shared<DM>(redis_server.c_str(),redis_port,comm->updates,logger);
   }
   
   std::shared_ptr<CM> comm;
@@ -44,13 +44,13 @@ public:
   static std::string path;
   static std::string redis_server;
   static int redis_port;
-
+  static std::ostream& logger;
 };
 
 std::string DataManager::path         = "../";
 std::string DataManager::redis_server = "localhost";
 int DataManager::redis_port   = 6379;
-
+std::ostream& DataManager::logger = std::cerr;
 
 
 

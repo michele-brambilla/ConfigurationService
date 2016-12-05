@@ -26,12 +26,13 @@ std::unique_ptr<T> make_unique( CONSTRUCTOR_ARGS&&... constructor_args )
 
 namespace configuration {
 
-  static const int NOT_YET_CONNECTED = 0; // Starting state
-  static const int CONNECTED = 1;         // Successfully connected
-  static const int DISCONNECTED = 2;      // Successfully disconnected
-  static const int CONNECT_ERROR = 3;     // Error connecting
-  static const int DISCONNECT_ERROR = 4;  // Disconnected on error
-  static const int INIT_ERROR = 5;        // Failed to init data structures
+  enum { NOT_YET_CONNECTED = 0, // Starting state
+         CONNECTED = 1,         // Successfully connected
+         DISCONNECTED = 2,      // Successfully disconnected
+         CONNECT_ERROR = 3,     // Error connecting
+         DISCONNECT_ERROR = 4,  // Disconnected on error
+         INIT_ERROR = 5         // Failed to init data structures
+  };
   
   void default_got_message(const std::string&,const std::string&);
   void default_got_error(const std::string &,const int &);
@@ -48,7 +49,7 @@ namespace configuration {
                          const int& comm_port=6379,
                          std::ostream& logger=std::cerr) : log(logger) {
       cm = make_unique<CommunicationManager>(comm_server,comm_port);
-      dm = make_unique<DataManager>(data_server,data_port,cm->updates);
+      dm = make_unique<DataManager>(data_server,data_port,cm->updates,log);
       log << "CommunicationManager addr = " << cm.get() << std::endl;
       log << "DataManager addr = " << dm.get() << std::endl;
     }

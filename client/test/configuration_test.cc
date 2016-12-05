@@ -54,12 +54,13 @@ public:
   static std::string path;
   static std::string redis_server;
   static int redis_port;
-
+  static std::ostream& logger;
 };
 
 std::string ConfigurationService::path         = "../";
 std::string ConfigurationService::redis_server = "localhost";
 int ConfigurationService::redis_port   = 6379;
+std::ostream& ConfigurationService::logger=std::cout;
 //configuration::communicator::RedisCommunicator::NotificationTimeout = 1;
 
 
@@ -75,7 +76,7 @@ TEST_F (ConfigurationService,ValidConfiguration) {
   std::string in = read_config_file((path+instrument_file).c_str()); 
   {
     CM c(redis_server,redis_port);
-    DM d(redis_server,redis_port,c.updates);
+    DM d(redis_server,redis_port,c.updates,logger);
     d.Clear();
   }
   EXPECT_TRUE(cs->AddConfig(in));

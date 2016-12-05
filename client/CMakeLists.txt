@@ -34,7 +34,7 @@ add_library( configmanager configuration.cc
   basic_communicator.cc
   container.cc )
 
-add_executable (dummy dummy.cc) 
+add_executable (dummy dummy.cc Config.cxx) 
 
 add_executable (Service Service.cc) 
 

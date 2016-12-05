@@ -3,6 +3,7 @@
 #include <string>
 
 #include <future>
+#include <random>
 
 // #include "redox.hpp"
 
@@ -12,6 +13,8 @@
 #include <rapidjson/error/en.h>
 
 #include <configuration.hpp>
+
+#include "Config.h"
 
 static const char* kTypeNames[] = 
   { "Null", "False", "True", "Object", "Array", "String", "Number" };
@@ -246,7 +249,17 @@ void connect (std::shared_ptr<RedisCommunicator>& cm) {
 }
 
 int main() {
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine generator(seed);
+  std::uniform_int_distribution<int> distribution(0,4096);
 
+
+  
+  std::string s=std::to_string(distribution(generator));
+  std::cout << s <<std::endl;
+  BrightnESS::ForwardEpicsToKafka::Config::Service s1(s);
+  return 0;
+  
   ZmqCommunicator zc("129.129.195.107");
   zc.Subscribe("Hello");
 

@@ -115,7 +115,6 @@ namespace configuration {
                      ) {
       return cm->Subscribe(key,got_message,got_error,unsubscribed);
     }
-
     
     const int& DataConnectionStatus() { return dm->connection_status; };
     const int& PublisherConnectionStatus() { return cm->publisher_connection_status; };

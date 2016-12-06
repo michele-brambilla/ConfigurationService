@@ -10,7 +10,7 @@ set (ConfigurationService_VERSION_MINOR 1)
 set (CMAKE_CXX_FLAGS "-std=c++11 -pthread -O3 -Wno-unsupported-friend")
 set (CMAKE_CXX_FLAGS_DEBUG "-std=c++11 -O0 -pthread -Wall -ggdb")
 
-
+set (CMAKE_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
 ## add the binary tree to the search path for include files
 include_directories(${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/rapidjson/include

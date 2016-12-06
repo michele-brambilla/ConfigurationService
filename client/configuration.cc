@@ -21,9 +21,33 @@ namespace configuration {
   int Init(const char* address="localhost",
            const int& port=6379) {
     std::cout << "creating configuration manager instance" << std::endl;
-    //    configuration_manager = make_unique<ConfigurationManager<D,C> >(address,port,);
-    //ConfigurationManager<D,C> config(address,port);
+    configuration_manager = make_unique<ConfigurationManager<D,C> >(address,port);
     return 0;
   }
 
+  int Add(const std::string& conf) {
+    return configuration_manager->AddConfig(conf);
+  }
+  
+  std::vector<std::string> Query(const std::string& key) {
+    return configuration_manager->Query(key);
+  }
+  
+  bool Update(const std::string& key, const std::string& value) {
+    return  configuration_manager->Update(key,value);
+  }
+  
+  bool Delete(const std::string& key) {
+    return configuration_manager->Delete(key);
+  }
+  
+  bool Subscribe(const std::string& key,
+                 std::function<void(const std::string&,const std::string&)> got_message=default_got_message,
+                 std::function<void(const std::string&,const int&)> got_error=default_got_error,
+                 std::function<void(const std::string&)> unsubscribed=default_unsubscribed
+                 ) {
+    return configuration_manager->Subscribe(key,got_message,got_error,unsubscribed);
+  }
+
+  
 }

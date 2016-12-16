@@ -85,7 +85,7 @@ TEST_F (CommunicatorManager, Notify) {
 TEST_F (CommunicatorManager, AutoNotify) {
   EXPECT_EQ(cm->NumMessages(),0);
   std::vector<std::string> status = {"a","u","d"};
-  for(int i = 0; i < 10*configuration::communicator::Communicator::MaxStoredMessages;++i) {
+  for(int i = 0; i < configuration::communicator::Communicator::MaxStoredMessages-1;++i) {
     EXPECT_TRUE( cm->Publish(std::string("message:")+std::to_string(i),status[i%3]) );
   }
   EXPECT_NE(cm->NumMessages(),10*configuration::communicator::Communicator::MaxStoredMessages);
@@ -210,7 +210,7 @@ TEST_F (CommunicatorManager, SubscribeMembersCallback) {
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   std::vector<std::string> status = {"a","u","d"};
-  for(int i = 0; i < num_test_msg;++i) {
+  for(int i = 0; i < num_test_msg-1;++i) {
     publisher->Publish(std::string("message:1"),status[i%3]);
     publisher->Publish(std::string("message:2"),status[i%3]);
     publisher->Publish(std::string("message:3"),status[i%3]);

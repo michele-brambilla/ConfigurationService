@@ -1,6 +1,15 @@
 #include <redis_configuration.hpp>
 #include <redis_utils.hpp>
 
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+
+#include <redox.hpp>
+#include <redis_utils.hpp>
+#include <redis_defs.hpp>
+
+
 int configuration::communicator::RedisCommunicator::NotificationTimeout = 2;
 
 configuration::data::RedisDataManager::RedisDataManager(const std::string& redis_server,
@@ -212,7 +221,7 @@ bool configuration::data::RedisDataManager::UpdateParent(const std::string& key)
 }
 
 
-configuration::utils::typelist::LIST_t configuration::data::RedisDataManager::ReturnValue(const std::string& key) {
+std::vector<std::string> configuration::data::RedisDataManager::ReturnValue(const std::string& key) {
   utils::typelist::LIST_t result;
   std::string key_type;
   std::string tmp;
@@ -246,11 +255,14 @@ configuration::utils::typelist::LIST_t configuration::data::RedisDataManager::Re
   }
   return result;
 }
-    
 
-bool configuration::data::RedisDataManager::redis_json_scan(GenericMemberIterator& member,
-                                                                                       std::string prefix) {
 
+
+typedef rapidjson::GenericMember<rapidjson::UTF8<>, rapidjson::MemoryPoolAllocator<> > GenericMemberIterator;
+template<>
+bool configuration::data::RedisDataManager::json_scan_impl<GenericMemberIterator>(GenericMemberIterator& member,
+                                                                                  std::string prefix) {
+  
   bool is_ok = true;
   if( prefix.size() == 0)
     prefix=std::string(member.name.GetString());
@@ -269,7 +281,7 @@ bool configuration::data::RedisDataManager::redis_json_scan(GenericMemberIterato
             << next.name.GetString() << " exists"
             << std::endl;
       }
-      redis_json_scan(next,prefix);
+      json_scan_impl(next,prefix);
     }
     else {
       if( !HExists(prefix,next.name.GetString()) ) {
@@ -292,3 +304,178 @@ bool configuration::data::RedisDataManager::redis_json_scan(GenericMemberIterato
   return is_ok;
 }
 
+
+bool configuration::data::RedisDataManager::json_scan(const std::string& conf) {
+  rapidjson::Document t;
+  t.Parse(conf.c_str());
+  if( t.HasParseError() ) { throw std::runtime_error("Error: invalid configuration"); }
+  bool is_ok = true;
+  for (auto& itr : t.GetObject()) {
+    is_ok &= json_scan_impl(itr,std::string());
+  }
+  return is_ok;
+}
+
+
+///////////////////////////////
+
+configuration::communicator::RedisCommunicator::RedisCommunicator(const std::string& server,
+                                                                  const int& port,
+                                                                  std::ostream& logger,
+                                                                  int redox_loglevel) 
+  : publisher(std::make_shared<redox::Redox>(logger,redox::log::Level::Fatal)),
+    subscriber(std::make_shared<redox::Subscriber>(logger,redox::log::Level::Fatal)),
+    log(logger),
+    redis_server(server),
+    redis_port(port) {
+  publisher->connect(redis_server, redis_port,
+                     std::bind(utils::redis_connection_callback,
+                               std::placeholders::_1,
+                               std::ref(publisher_connection_status)));
+  subscriber->connect(redis_server, redis_port,
+                      std::bind(utils::redis_connection_callback,
+                                std::placeholders::_1,
+                                std::ref(subscriber_connection_status)));
+  if( (publisher_connection_status != redox::Redox::CONNECTED) ||
+      (subscriber_connection_status != redox::Redox::CONNECTED) ) {
+    log << "Communicator can't connect to REDIS\n";
+    throw std::runtime_error("Can't connect to REDIS server");
+  }
+  t=std::move(std::thread(&RedisCommunicator::AutoNotification,this));      
+};
+
+configuration::communicator::RedisCommunicator::~RedisCommunicator() {
+  keep_counting = false;
+  t.join();
+  // subscriber->disconnect();
+  // publisher->disconnect();
+  Disconnect();
+};
+
+
+void configuration::communicator::RedisCommunicator::Disconnect() {
+  publisher->disconnect();
+  subscriber->disconnect();
+  if(  (publisher_connection_status != redox::Redox::DISCONNECTED) ||
+       (subscriber_connection_status != redox::Redox::DISCONNECTED) ) {
+    throw std::runtime_error("Can't disconnect from REDIS server: error "+
+                             std::to_string(publisher_connection_status)+","+
+                             std::to_string(subscriber_connection_status) );
+  }
+}
+      
+bool configuration::communicator::RedisCommunicator::Notify() {
+  std::string cmd = "PUBLISH ";
+  int nclients;
+  bool is_ok = true;
+  for(auto& msg : updates) {
+    is_ok &= utils::ExecRedisCmd<int>(*publisher,
+                                      cmd+msg.first+" "+msg.second,
+                                      &nclients);
+    if( nclients == 0 )
+      log << msg.first << ": no connected clients\n";
+    if(!keep_counting)
+      break;
+  }
+  updates.clear();
+  return is_ok;
+};
+
+bool configuration::communicator::RedisCommunicator::Subscribe(const std::string& key) {
+  bool is_ok = true;
+  
+  auto got_message = [&](const std::string& topic, const std::string& msg) {
+    total_recv_messages++;
+    this->log << topic << ": " << msg << std::endl;
+  };
+  auto  subscribed = [&](const std::string& topic) {
+    this->log << "> Subscribed to " << topic << std::endl;
+  };
+  auto unsubscribed = [&](const std::string& topic) {
+    this->log << "> Unsubscribed from " << topic << std::endl;
+  };
+  auto got_error = [&](const std::string& topic, const int& id_error) {
+    this->log << "> Subscription topic " << topic << " error: " << id_error << std::endl;
+    is_ok = false;
+  };
+  
+  if ( (key).find("*")!=std::string::npos)
+    subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
+  else
+    subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  
+  return is_ok;
+};
+
+bool configuration::communicator::RedisCommunicator::Subscribe(const std::string& key,
+                                                               std::function<void(const std::string&,const std::string&)> got_message,
+                                                               std::function<void(const std::string&,const int&)> got_error,
+                                                               std::function<void(const std::string&)> unsubscribed) {
+
+  log << "called subscribe (3) " << std::endl;
+  auto subscribed = [&](const std::string& topic) {
+    this->log << "> Subscribed to " << topic << std::endl;
+  };
+  
+  if ( (key).find("*")!=std::string::npos) {
+    log << "called psubscribe " << std::endl;
+    subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
+  }
+  else {
+    subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::set<std::string> topic_list = subscriber->subscribedTopics();	
+    if( topic_list.find(key) == topic_list.end() )
+      return false;
+  }
+  
+  return true;
+};
+
+
+bool configuration::communicator::RedisCommunicator::Unsubscribe(const std::string& key,
+                                                                 std::function<void(const std::string&,const int&)> got_error) {
+  bool is_ok = true;
+  std::size_t found = key.find("*");
+  if ( found != std::string::npos) {
+    std::string short_key(key);
+    short_key.pop_back();
+    auto list = subscriber->psubscribedTopics();
+    if ( list.find(short_key) == list.end() )
+      return false;
+    subscriber->punsubscribe(short_key.substr(0,found-1),got_error);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    list = subscriber->psubscribedTopics();
+    if ( list.find(short_key) == list.end() )
+      return false;
+  }
+  else {
+    subscriber->unsubscribe(key,got_error);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    for( auto& s : subscriber->subscribedTopics())
+      if( s == key )
+        is_ok = false;
+  }
+  return is_ok;
+};
+
+std::set<std::string> configuration::communicator::RedisCommunicator::ListTopics() {
+  std::set<std::string> s = subscriber->subscribedTopics();
+  s.insert(subscriber->psubscribedTopics().begin(),
+           subscriber->psubscribedTopics().end() );
+  return s;
+};
+
+bool configuration::communicator::RedisCommunicator::Reconnect() {
+  publisher->connect(redis_server, redis_port,
+                     std::bind(utils::redis_connection_callback,
+                               std::placeholders::_1,
+                               std::ref(publisher_connection_status)));
+  subscriber->connect(redis_server, redis_port,
+                      std::bind(utils::redis_connection_callback,
+                                std::placeholders::_1,
+                                std::ref(subscriber_connection_status)));
+  return ( (publisher_connection_status != redox::Redox::CONNECTED) &&
+           (subscriber_connection_status != redox::Redox::CONNECTED) ) ;
+};

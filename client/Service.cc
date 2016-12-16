@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <unistd.h>
@@ -47,7 +48,7 @@ int main(int argc, char **argv) {
   configuration::ConfigurationManager<DM,CM> cm(data_addr.c_str(),data_port,
                                                 comm_addr.c_str(),comm_port);
 
-  configuration::utils::typelist::KEYS_t key_list;
+  std::vector<std::string> key_list;
   std::string action,value;
   int sep;
 

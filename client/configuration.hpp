@@ -69,6 +69,7 @@ namespace configuration {
 
     
     bool AddConfig(const std::string& conf) {
+      std::cout << "AddConfig:\n" << conf << std::endl;
       bool success = dm->AddConfig(conf);
       if(!success)
         log << "Error: can't add config " << std::endl;

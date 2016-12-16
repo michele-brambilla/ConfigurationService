@@ -4,12 +4,6 @@
 #include <fstream>
 #include <stdexcept>
 
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
-
-#include <redox.hpp>
-
 #include<types.hpp>
 
 
@@ -26,17 +20,7 @@ namespace configuration {
 
       DataManager() { };
 
-      bool AddConfig(const std::string& conf) {
-        rapidjson::Document t;
-        t.Parse(conf.c_str());
-        if( t.HasParseError() ) { throw std::runtime_error("Error: invalid configuration"); }
-	bool is_ok = true;
-	for (auto& itr : t.GetObject()) {
-	  is_ok &= redis_json_scan(itr,std::string());
-	}
-	return is_ok;
-	//        return scan(t.MemberBegin(),t.MemberEnd());
-      }
+      bool AddConfig(const std::string&);
 
       std::vector<std::string> Query(const std::string& key) { return ReturnValue(key); }
       
@@ -67,9 +51,7 @@ namespace configuration {
 	return false;
       }
 
-      bool IsValidString(std::string s) {
-        return !rapidjson::Document().Parse(s.c_str()).HasParseError();
-      }
+      bool IsValidString(std::string);
 
       virtual void Clear() { }
     protected:
@@ -107,13 +89,8 @@ namespace configuration {
 
       virtual bool UpdateParent(const std::string&) { return false; }
 
-      // virtual bool scan(rapidjson::Value::MemberIterator,
-      //                   rapidjson::Value::MemberIterator,
-      //                   std::string="") { return false; }
-
-      typedef rapidjson::GenericMember<rapidjson::UTF8<>, rapidjson::MemoryPoolAllocator<> > GenericMemberIterator;
-      virtual bool redis_json_scan(GenericMemberIterator&,std::string) { 
-	return false; }
+      
+      virtual bool json_scan(const std::string&);
       
     };
 

@@ -69,12 +69,9 @@ TEST_F (DataManager, AddConfig) {
 }
 
 TEST_F (DataManager, AddNewConfig) {
-  // DM< FCM> dm(redis_server,redis_port,comm);
   dm->Clear();
   EXPECT_TRUE( dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) ) );
-  // add new config on top of existing one
   EXPECT_FALSE( dm->AddConfig( read_config_file((DataManager::path+instrument_file).c_str()) ) );
-  // EXPECT_TRUE( dm->AddConfig( read_config_file((DataManager::path+new_instrument_file).c_str()) ) );
 }
 
 TEST_F (DataManager, QueryHash) {

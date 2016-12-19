@@ -388,7 +388,6 @@ bool configuration::communicator::RedisCommunicator::Subscribe(const std::string
     total_recv_messages++;
     this->log << topic << ": " << msg << std::endl;
   };
-
   auto  subscribed = [&](const std::string& topic) {
     this->log << "> Subscribed to " << topic << std::endl;
   };
@@ -400,14 +399,11 @@ bool configuration::communicator::RedisCommunicator::Subscribe(const std::string
     is_ok = false;
   };
   
-  if ( (key).find("*")!=std::string::npos) {
+  if ( (key).find("*")!=std::string::npos)
     subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
-    std::cout << subscriber->subscribedTopics().size() << std::endl;
-  }
-  else {
+  else
     subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
-    std::cout << subscriber->subscribedTopics().size() << std::endl;
-  }
+
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   
   return is_ok;
@@ -423,9 +419,11 @@ bool configuration::communicator::RedisCommunicator::Subscribe(const std::string
   };
   
   if ( (key).find("*")!=std::string::npos) {
+    log << "called psubscribe " << std::endl;
     subscriber->psubscribe(key, got_message, subscribed, unsubscribed, got_error);
   }
   else {
+    log << "called subscribe " << std::endl;
     subscriber->subscribe(key, got_message, subscribed, unsubscribed, got_error);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     std::set<std::string> topic_list = subscriber->subscribedTopics();	
